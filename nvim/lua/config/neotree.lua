@@ -145,6 +145,10 @@ function M.setup()
               ".gitignored",
 	      ".dockerignore",
 	      ".gitignore",
+	      ".git",
+	      ".claude",
+	      ".cursor",
+	      "res",
             },
             always_show_by_pattern = { -- uses glob style patterns
               ".env*",

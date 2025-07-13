@@ -80,6 +80,7 @@ Plug 'nvimdev/dashboard-nvim'
 
 " footer
 Plug 'nvim-lualine/lualine.nvim'
+Plug 'lambdalisue/battery.vim'
 
 call plug#end()
 
