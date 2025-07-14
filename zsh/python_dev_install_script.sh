@@ -340,7 +340,7 @@ install_poetry() {
     info "Poetry 기본 설정 중..."
     
     # 가상환경을 프로젝트 내부에 생성하도록 설정
-    $poetry_cmd config virtualenvs.in-project true 2>/dev/null || warning "Poetry 설정 실패: virtualenvs.in-project"
+    $poetry_cmd config virtualenvs.in-project true 2>dev/null || warning "Poetry 설정 실패: virtualenvs.in-project"
     
     # 병렬 설치 활성화
     $poetry_cmd config installer.parallel true 2>/dev/null || warning "Poetry 설정 실패: installer.parallel"
@@ -640,7 +640,6 @@ fpath+=~/.zfunc
 
 # ===== 별칭 설정 =====
 # 기본 별칭
-alias ll="ls -la"
 alias la="ls -A"
 alias l="ls -CF"
 alias ..="cd .."
@@ -696,6 +695,11 @@ alias gpl="git pull"
 alias reload="source ~/.zshrc"
 alias editrc="vim ~/.zshrc"
 
+# Custom Aliases - Enhanced Terminal Tools
+alias ls="lsd --no-symlink"
+alias ll="lsd -l --no-symlink"
+alias lt="lsd --tree --no-symlink"
+
 # ===== 함수 =====
 # 새 Python 프로젝트 생성
 newpy() {
@@ -742,16 +746,21 @@ if command -v fzf >/dev/null; then
     [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 fi
 
-# ===== 시작 메시지 =====
-echo "🐍 Python Development Environment Ready!"
-if command -v python3 >/dev/null; then
-    echo "Python: $(python3 --version)"
+# tmux 세션이 아닐 때만 출력
+if [[ -z "$TMUX" ]]; then
+    neofetch
+    
+    echo "🐍 Python Development Environment Ready!"
+    if command -v python3 >/dev/null; then
+        echo "Python: $(python3 --version)"
+    fi
+    if command -v poetry >/dev/null; then
+        echo "Poetry: $(poetry --version)"
+    elif [[ -f "$HOME/.local/bin/poetry" ]]; then
+        echo "Poetry: $($HOME/.local/bin/poetry --version)"
+    fi
 fi
-if command -v poetry >/dev/null; then
-    echo "Poetry: $(poetry --version)"
-elif [[ -f "$HOME/.local/bin/poetry" ]]; then
-    echo "Poetry: $($HOME/.local/bin/poetry --version)"
-fi
+
 EOF
     
     success ".zshrc 설정 파일 생성 완료"
