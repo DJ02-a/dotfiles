@@ -213,20 +213,6 @@ commands:
   flush: "mutagen sync flush ${host}-sync"
   reset: "mutagen sync reset ${host}-sync"
 
-# 프로젝트 생명주기 훅
-beforeCreate:
-  - "echo '🚀 Starting Mutagen sync: $project_name -> $host'"
-
-afterCreate:
-  - "echo '✅ Mutagen sync started successfully'"
-  - "echo '🔗 SSH: ssh $host'"
-  - "echo '📊 Monitor: mutagen project run logs'"
-
-beforeTerminate:
-  - "echo '🛑 Stopping Mutagen sync: $project_name'"
-
-afterTerminate:
-  - "echo '✅ Mutagen sync stopped'"
 EOF
     
     echo "✅ mutagen.yml 파일이 생성되었습니다."
@@ -357,6 +343,147 @@ function mstop() {
         echo "💡 Restart with: mstart"
     else
         echo "❌ Failed to stop Mutagen project"
+    fi
+}
+
+# Mutagen 프로젝트 일시정지
+function mpause() {
+    local session_name=$1
+    
+    # 세션 이름이 지정되지 않은 경우 자동 감지
+    if [[ -z "$session_name" ]]; then
+        if [[ -f "mutagen.yml" ]]; then
+            # mutagen.yml에서 첫 번째 세션 이름 추출
+            session_name=$(grep -E "^  [^#].*-sync:" mutagen.yml | head -1 | sed 's/:$//' | sed 's/^  //')
+            if [[ -z "$session_name" ]]; then
+                # 기본 세션 이름들 시도
+                local default_sessions=("main" "default")
+                for default_name in "${default_sessions[@]}"; do
+                    if mutagen sync list "$default_name" >/dev/null 2>&1; then
+                        session_name="$default_name"
+                        break
+                    fi
+                done
+                
+                if [[ -z "$session_name" ]]; then
+                    echo "❌ No session found in mutagen.yml"
+                    echo "💡 Usage: mpause <session_name>"
+                    return 1
+                fi
+            fi
+            echo "📊 Auto-detected session: $session_name"
+        else
+            # 활성 세션 중 첫 번째 사용
+            session_name=$(mutagen sync list 2>/dev/null | grep "Name:" | head -1 | awk '{print $2}')
+            if [[ -z "$session_name" ]]; then
+                echo "❌ No active sessions found"
+                echo "💡 Usage: mpause <session_name>"
+                echo "💡 Available sessions:"
+                mutagen sync list 2>/dev/null | grep "Name:" | sed 's/Name: /  - /'
+                return 1
+            fi
+            echo "📊 Using active session: $session_name"
+        fi
+    fi
+    
+    # 현재 상태 확인
+    local current_status=$(mutagen sync list "$session_name" 2>/dev/null | grep "Status:" | awk '{print $2}')
+    
+    if [[ -z "$current_status" ]]; then
+        echo "❌ Session '$session_name' not found"
+        echo "💡 Available sessions:"
+        mutagen sync list 2>/dev/null | grep "Name:" | sed 's/Name: /  - /'
+        return 1
+    fi
+    
+    if [[ "$current_status" == "Paused" ]]; then
+        echo "⏸️  Session '$session_name' is already paused"
+        echo "💡 Use 'mresume $session_name' to resume"
+        return 0
+    fi
+    
+    echo "⏸️  Pausing Mutagen session: $session_name"
+    echo "📊 Current status: $current_status"
+    
+    mutagen sync pause "$session_name"
+    
+    if [[ $? -eq 0 ]]; then
+        echo "✅ Session paused successfully"
+        echo "💡 Resume with: mresume $session_name"
+        echo "📊 Check status: mstatus"
+    else
+        echo "❌ Failed to pause session"
+        echo "💡 Check session status: mutagen sync list $session_name"
+    fi
+}
+
+# Mutagen 프로젝트 재개
+function mresume() {
+    local session_name=$1
+    
+    # 세션 이름이 지정되지 않은 경우 자동 감지
+    if [[ -z "$session_name" ]]; then
+        if [[ -f "mutagen.yml" ]]; then
+            # mutagen.yml에서 첫 번째 세션 이름 추출
+            session_name=$(grep -E "^  [^#].*-sync:" mutagen.yml | head -1 | sed 's/:$//' | sed 's/^  //')
+            if [[ -z "$session_name" ]]; then
+                # 기본 세션 이름들 시도
+                local default_sessions=("main" "default")
+                for default_name in "${default_sessions[@]}"; do
+                    if mutagen sync list "$default_name" >/dev/null 2>&1; then
+                        session_name="$default_name"
+                        break
+                    fi
+                done
+                
+                if [[ -z "$session_name" ]]; then
+                    echo "❌ No session found in mutagen.yml"
+                    echo "💡 Usage: mresume <session_name>"
+                    return 1
+                fi
+            fi
+            echo "📊 Auto-detected session: $session_name"
+        else
+            # 일시정지된 세션 찾기
+            session_name=$(mutagen sync list 2>/dev/null | grep -B1 "Status: Paused" | grep "Name:" | head -1 | awk '{print $2}')
+            if [[ -z "$session_name" ]]; then
+                echo "❌ No paused sessions found"
+                echo "💡 Usage: mresume <session_name>"
+                echo "💡 Available sessions:"
+                mutagen sync list 2>/dev/null | grep "Name:" | sed 's/Name: /  - /'
+                return 1
+            fi
+            echo "📊 Found paused session: $session_name"
+        fi
+    fi
+    
+    # 현재 상태 확인
+    local current_status=$(mutagen sync list "$session_name" 2>/dev/null | grep "Status:" | awk '{print $2}')
+    
+    if [[ -z "$current_status" ]]; then
+        echo "❌ Session '$session_name' not found"
+        echo "💡 Available sessions:"
+        mutagen sync list 2>/dev/null | grep "Name:" | sed 's/Name: /  - /'
+        return 1
+    fi
+    
+    if [[ "$current_status" != "Paused" ]]; then
+        echo "▶️  Session '$session_name' is not paused (Status: $current_status)"
+        echo "💡 Current session is already active"
+        return 0
+    fi
+    
+    echo "▶️  Resuming Mutagen session: $session_name"
+    
+    mutagen sync resume "$session_name"
+    
+    if [[ $? -eq 0 ]]; then
+        echo "✅ Session resumed successfully"
+        echo "📊 Monitor with: mlogs $session_name"
+        echo "📊 Check status: mstatus"
+    else
+        echo "❌ Failed to resume session"
+        echo "💡 Check session status: mutagen sync list $session_name"
     fi
 }
 
@@ -583,6 +710,8 @@ function mhelp() {
     echo "  mstatus   - Show session status summary"
     echo "  mcheck    - Check connectivity and health"
     echo "  mrestart  - Restart session/project"
+    echo "  mpause    - Pause session/project"
+    echo "  mresume   - Resume paused session/project"
     echo ""
     echo "📝 Project Management:"
     echo "  mgen      - Generate basic mutagen.yml template"
@@ -606,6 +735,12 @@ function mhelp() {
     echo "  1. Run 'mgen <project> <endpoint>' for simple setup"
     echo "  2. Edit mutagen.yml as needed"
     echo "  3. Run 'mstart' to begin synchronization"
+    echo ""
+    echo "⏸️  Session Control:"
+    echo "  - mpause: Temporarily pause sync (files won't sync)"
+    echo "  - mresume: Resume paused sync"
+    echo "  - mstop: Completely stop sync (removes session)"
+    echo "  - mstart: Start new sync session"
 }
 
 # 자동완성 설정 (간단한 버전)
@@ -618,7 +753,7 @@ if [[ -n ${ZSH_VERSION-} ]]; then
     }
     
     # 자동완성 등록
-    compdef _mutagen_sessions mlogs mrestart
+    compdef _mutagen_sessions mlogs mrestart mpause mresume
 fi
 
 # 별칭 설정 (선택사항)
@@ -626,6 +761,3 @@ alias ms='mstatus'
 alias ml='mlist'
 alias mc='mcheck'
 alias mg='mgen'
-
-echo "✅ Mutagen zsh functions loaded!"
-echo "💡 Run 'mhelp' to see available commands"
