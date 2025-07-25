@@ -249,45 +249,84 @@ install_uv() {
     fi
 }
 
-# Check Claude Code CLI
+# Check Claude Code CLI and find working path
 check_claude_cli() {
     print_step "Checking Claude Code CLI..."
     
     # Remove any conflicting aliases first
     unalias claude 2>/dev/null || true
     
-    # Check for claude command in common locations
+    # Define possible Claude CLI locations in order of preference
     local claude_paths=(
-        "/usr/local/bin/claude"
-        "/opt/claude/bin/claude"
-        "$HOME/.local/bin/claude"
-        "$(which claude 2>/dev/null)"
+        "/opt/homebrew/bin/claude"           # Homebrew on Apple Silicon Mac
+        "/usr/local/bin/claude"              # Homebrew on Intel Mac / Manual install
+        "/usr/bin/claude"                    # System-wide install
+        "$(brew --prefix 2>/dev/null)/bin/claude"  # Homebrew auto-detect
+        "$HOME/.local/bin/claude"            # User local install
+        "/opt/claude/bin/claude"             # Custom install location
     )
     
+    local working_claude=""
+    
+    print_info "Searching for working Claude CLI..."
+    
+    # Test each possible path
     for path in "${claude_paths[@]}"; do
-        if [[ -f "$path" && -x "$path" ]]; then
-            print_success "Claude Code CLI found at: $path"
-            "$path" --version 2>/dev/null || true
-            return 0
+        if [[ -n "$path" && -f "$path" && -x "$path" ]]; then
+            print_info "Testing: $path"
+            if "$path" --version &>/dev/null 2>&1; then
+                working_claude="$path"
+                print_success "✓ Working Claude CLI found at: $path"
+                break
+            else
+                print_warning "⚠ File exists but not working: $path"
+            fi
         fi
     done
     
-    # If not found, check if it's aliased incorrectly
-    if alias claude 2>/dev/null | grep -q "web_search"; then
-        print_error "Claude CLI is incorrectly aliased to web_search"
-        print_info "Removing incorrect alias..."
-        unalias claude
-        
-        # Remove from shell config files
-        sed -i '/alias claude.*web_search/d' ~/.bashrc 2>/dev/null || true
-        sed -i '/alias claude.*web_search/d' ~/.zshrc 2>/dev/null || true
+    # If no working Claude found, check if it's aliased incorrectly
+    if [[ -z "$working_claude" ]]; then
+        if alias claude 2>/dev/null | grep -q "web_search"; then
+            print_error "Claude CLI is incorrectly aliased to web_search"
+            print_info "Removing incorrect alias..."
+            unalias claude
+            
+            # Remove from shell config files (macOS compatible)
+            local os=$(detect_os)
+            if [[ "$os" == "macos" ]]; then
+                sed -i '' '/alias claude.*web_search/d' ~/.bashrc 2>/dev/null || true
+                sed -i '' '/alias claude.*web_search/d' ~/.zshrc 2>/dev/null || true
+            else
+                sed -i '/alias claude.*web_search/d' ~/.bashrc 2>/dev/null || true
+                sed -i '/alias claude.*web_search/d' ~/.zshrc 2>/dev/null || true
+            fi
+            
+            # Try again after removing conflicting alias
+            for path in "${claude_paths[@]}"; do
+                if [[ -n "$path" && -f "$path" && -x "$path" ]]; then
+                    if "$path" --version &>/dev/null 2>&1; then
+                        working_claude="$path"
+                        print_success "✓ Working Claude CLI found after alias cleanup: $path"
+                        break
+                    fi
+                fi
+            done
+        fi
     fi
     
-    print_error "Claude Code CLI not found"
-    print_info "Please install Claude Code CLI from: https://claude.ai/code"
-    print_info "Ensure 'claude' command is available in your PATH"
-    print_warning "Make sure there are no conflicting aliases for 'claude'"
-    return 1
+    if [[ -n "$working_claude" ]]; then
+        # Store the working path for later use
+        export CLAUDE_CLI_PATH="$working_claude"
+        print_success "Claude Code CLI verified: $working_claude"
+        "$working_claude" --version 2>/dev/null || true
+        return 0
+    else
+        print_error "No working Claude Code CLI found"
+        print_info "Please install Claude Code CLI from: https://claude.ai/code"
+        print_info "Ensure 'claude' command is available in your PATH"
+        print_warning "Make sure there are no conflicting aliases for 'claude'"
+        return 1
+    fi
 }
 
 # Install Claudia (GUI for Claude Code)
@@ -380,9 +419,9 @@ install_superclaude() {
     print_info "SuperClaude commands are now available in Claude Code"
 }
 
-# Add PATH exports to shell configuration
-setup_environment() {
-    print_step "Setting up environment..."
+# Setup Claude CLI alias with correct path
+setup_claude_alias() {
+    print_step "Setting up Claude CLI alias..."
     
     # Determine shell configuration file
     local shell_config=""
@@ -394,26 +433,44 @@ setup_environment() {
         shell_config="$HOME/.profile"
     fi
     
-    # Remove any existing Claude Tools environment setup
-    sed -i '/# Claude Tools Environment/,/^$/d' "$shell_config" 2>/dev/null || true
+    # Remove any existing Claude alias configurations
+    local os=$(detect_os)
+    if [[ "$os" == "macos" ]]; then
+        sed -i '' '/# Override Oh My Zsh web-search claude alias/d' "$shell_config" 2>/dev/null || true
+        sed -i '' '/# Claude CLI - Auto-detected/d' "$shell_config" 2>/dev/null || true
+        sed -i '' '/unalias claude/d' "$shell_config" 2>/dev/null || true
+        sed -i '' '/alias claude=/d' "$shell_config" 2>/dev/null || true
+    else
+        sed -i '/# Override Oh My Zsh web-search claude alias/d' "$shell_config" 2>/dev/null || true
+        sed -i '/# Claude CLI - Auto-detected/d' "$shell_config" 2>/dev/null || true
+        sed -i '/unalias claude/d' "$shell_config" 2>/dev/null || true
+        sed -i '/alias claude=/d' "$shell_config" 2>/dev/null || true
+    fi
     
-    # Add necessary PATH exports (without conflicting aliases)
-    {
-        echo ""
-        echo "# Claude Tools Environment - Added by installer"
-        echo 'export PATH="$HOME/.cargo/bin:$PATH"'
-        echo 'export PATH="$HOME/.bun/bin:$PATH"'
-        echo 'export PATH="$HOME/.local/bin:$PATH"'
-        echo ""
-        echo "# Claude Tools aliases (safe versions)"
-        echo "alias claudia-gui='claudia'  # Launch Claudia GUI"
-        echo "alias sc-help='claude /sc:help'  # SuperClaude help (requires claude CLI)"
-        echo ""
-    } >> "$shell_config"
-    
-    print_success "Environment setup completed"
-    print_info "Shell configuration updated: $shell_config"
-    print_warning "NOTE: No 'claude' alias created to avoid conflicts"
+    # Add correct Claude CLI alias if we found a working path
+    if [[ -n "$CLAUDE_CLI_PATH" ]]; then
+        {
+            echo ""
+            echo "# Claude CLI - Auto-detected working path"
+            echo "unalias claude 2>/dev/null || true"
+            echo "alias claude='$CLAUDE_CLI_PATH'"
+        } >> "$shell_config"
+        
+        # Apply immediately to current session
+        unalias claude 2>/dev/null || true
+        alias claude="$CLAUDE_CLI_PATH"
+        
+        print_success "Claude CLI alias configured: $CLAUDE_CLI_PATH"
+        
+        # Test the alias
+        if claude --version &>/dev/null; then
+            print_success "✓ Claude CLI alias is working correctly"
+        else
+            print_warning "⚠ Claude CLI alias may have issues"
+        fi
+    else
+        print_warning "No working Claude CLI path found, skipping alias setup"
+    fi
 }
 
 # Verify installations
@@ -422,9 +479,21 @@ verify_installations() {
     
     local failed=0
     
-    # Check Claude CLI
-    if command_exists claude; then
-        print_success "✓ Claude Code CLI is available"
+    # Check Claude CLI with the detected path
+    if [[ -n "$CLAUDE_CLI_PATH" ]] && [[ -x "$CLAUDE_CLI_PATH" ]]; then
+        if "$CLAUDE_CLI_PATH" --version &>/dev/null; then
+            print_success "✓ Claude Code CLI is working: $CLAUDE_CLI_PATH"
+        else
+            print_error "✗ Claude Code CLI found but not working: $CLAUDE_CLI_PATH"
+            failed=1
+        fi
+    elif command_exists claude; then
+        if claude --version &>/dev/null; then
+            print_success "✓ Claude Code CLI is available via PATH"
+        else
+            print_error "✗ Claude Code CLI in PATH but not working"
+            failed=1
+        fi
     else
         print_error "✗ Claude Code CLI not found"
         failed=1
@@ -515,11 +584,49 @@ main() {
     install_claudia
     echo ""
     
-    install_superclaude
-    echo ""
+# Add PATH exports to shell configuration
+setup_environment() {
+    print_step "Setting up environment..."
     
-    setup_environment
-    echo ""
+    # Determine shell configuration file
+    local shell_config=""
+    if [[ -n "$ZSH_VERSION" ]] || [[ "$SHELL" == *"zsh"* ]]; then
+        shell_config="$HOME/.zshrc"
+    elif [[ -n "$BASH_VERSION" ]] || [[ "$SHELL" == *"bash"* ]]; then
+        shell_config="$HOME/.bashrc"
+    else
+        shell_config="$HOME/.profile"
+    fi
+    
+    # Remove any existing Claude Tools environment setup
+    local os=$(detect_os)
+    if [[ "$os" == "macos" ]]; then
+        sed -i '' '/# Claude Tools Environment/,/^$/d' "$shell_config" 2>/dev/null || true
+    else
+        sed -i '/# Claude Tools Environment/,/^$/d' "$shell_config" 2>/dev/null || true
+    fi
+    
+    # Add necessary PATH exports
+    {
+        echo ""
+        echo "# Claude Tools Environment - Added by installer"
+        echo 'export PATH="$HOME/.cargo/bin:$PATH"'
+        echo 'export PATH="$HOME/.bun/bin:$PATH"'
+        echo 'export PATH="$HOME/.local/bin:$PATH"'
+        echo ""
+        echo "# Claude Tools aliases (safe versions)"
+        echo "alias claudia-gui='claudia'  # Launch Claudia GUI"
+        if [[ -n "$CLAUDE_CLI_PATH" ]]; then
+            echo "alias sc-help='$CLAUDE_CLI_PATH /sc:help'  # SuperClaude help"
+        else
+            echo "# alias sc-help='claude /sc:help'  # SuperClaude help (claude CLI not found)"
+        fi
+        echo ""
+    } >> "$shell_config"
+    
+    print_success "Environment setup completed"
+    print_info "Shell configuration updated: $shell_config"
+}
     
     # Verify installation
     if verify_installations; then
@@ -536,6 +643,9 @@ main() {
         echo "  1. Restart your terminal or run: source ~/.bashrc (or ~/.zshrc)"
         echo "  2. Launch Claudia: claudia"
         echo "  3. Use SuperClaude commands in Claude Code (e.g., /sc:help)"
+        if [[ -n "$CLAUDE_CLI_PATH" ]]; then
+            echo "  4. Claude CLI is available at: $CLAUDE_CLI_PATH"
+        fi
         echo ""
         print_info "Documentation:"
         echo "  • Claudia: https://github.com/getAsterisk/claudia"
@@ -575,25 +685,3 @@ case "${1:-}" in
         main "$@"
         ;;
 esac
-
-# 영구적으로 설정 (web-search 플러그인보다 나중에 로드되도록)
-echo "" >> ~/.zshrc
-echo "# Override Oh My Zsh web-search claude alias with actual Claude CLI" >> ~/.zshrc
-echo "unalias claude 2>/dev/null || true" >> ~/.zshrc
-echo "alias claude='/usr/local/bin/claude'" >> ~/.zshrc
-
-# 1. 대상 디렉토리 생성
-mkdir -p ~/.claude/commands
-
-# 2. command 폴더 안의 모든 디렉토리를 개별 링크로 생성
-for dir in ./commands/*/; do
-    if [[ -d "$dir" ]]; then
-        dirname=$(basename "$dir")
-        echo "🔗 링크 생성: $dirname"
-        ln -sf "$(realpath "$dir")" ~/.claude/commands/"$dirname"
-    fi
-done
-
-# 3. 결과 확인
-echo "✅ 생성된 링크들:"
-ls -la ~/.claude/commands/
