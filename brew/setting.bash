@@ -2,7 +2,6 @@ brew update
 brew install lsd bat
 brew install neofetch
 
-
 # .zshrc 파일 경로
 ZSHRC_FILE="$HOME/.zshrc"
 

@@ -436,7 +436,7 @@ install_optional_tools() {
     # 기본 도구들 (exa -> eza로 변경)
     local tools=()
     if command_exists brew; then
-        tools=("helm" "awscli" "ripgrep" "fd" "bat" "eza" "httpie" "jq" "htop" "tree" "fzf" "starship")
+        tools=("helm" "awscli" "ripgrep" "fd" "bat" "eza" "httpie" "jq" "htop" "tree" "fzf" "starship" "terraform" "pyright")
     fi
     
     echo "다음 도구들을 설치할 수 있습니다:"
