@@ -6,6 +6,7 @@ set relativenumber
 set numberwidth=4
 set cursorline
 set encoding=utf-8
+set modifiable
 set fileencoding=utf-8
 set fileencodings=utf-8,euc-kr,cp949
 set langmenu=ko_KR.UTF-8
@@ -111,6 +112,7 @@ Plug 'rafamadriz/friendly-snippets'
 Plug 'lukas-reineke/indent-blankline.nvim'
 " 동일 변수 하이라이트
 Plug 'RRethy/vim-illuminate'
+" Plug 'xiyaowong/nvim-cursorword'
 " 무지개 괄호
 Plug 'HiPhish/rainbow-delimiters.nvim'
 " 색상 코드 미리보기
@@ -709,6 +711,13 @@ if illuminate then
             'fugitive',
         },
         under_cursor = true,
+        large_file_cutoff = 2000,
+        large_file_overrides = nil,
+        min_count_to_highlight = 1,
+        should_enable = function(bufnr)
+            return true
+        end,
+        case_insensitive_regex = false,
     })
     
     -- 키맵 설정
