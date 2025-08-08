@@ -182,7 +182,7 @@ dashboard.setup({
     project = {
       enable = true,
       limit = 6,
-      icon = '󰉋 ',
+      icon = ' ',
       label = '📁 Recent Projects:',
       action = 'Telescope find_files cwd='
     },

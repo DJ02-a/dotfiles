@@ -11,6 +11,21 @@ set fileencodings=utf-8,euc-kr,cp949
 set langmenu=ko_KR.UTF-8
 set background=dark " or light if you want light mode
 
+" =================================
+" 파일 타입별 자동 설정
+" =================================
+" YAML 파일 설정
+autocmd FileType yaml setlocal tabstop=2 shiftwidth=2 softtabstop=2 expandtab
+autocmd BufNewFile,BufRead *.yml,*.yaml setlocal tabstop=2 shiftwidth=2 softtabstop=2 expandtab
+
+" JSON 파일 설정
+autocmd FileType json setlocal tabstop=2 shiftwidth=2 softtabstop=2 expandtab
+autocmd FileType json nnoremap <buffer> <leader>jf :%!python -m json.tool<CR>
+
+" Docker 파일 설정
+autocmd BufNewFile,BufRead Dockerfile*,docker-compose*.yml,docker-compose*.yaml setlocal filetype=dockerfile
+autocmd FileType dockerfile setlocal tabstop=4 shiftwidth=4 softtabstop=4 expandtab
+
 call plug#begin('~/.config/nvim/plugged')
 " THEMES
 " Plug 'rebelot/kanagawa.nvim'
@@ -81,6 +96,31 @@ Plug 'nvimdev/dashboard-nvim'
 " footer
 Plug 'nvim-lualine/lualine.nvim'
 Plug 'lambdalisue/battery.vim'
+
+" =================================
+" 편의성 및 시각화 플러그인
+" =================================
+" 자동 괄호 완성
+Plug 'windwp/nvim-autopairs'
+" 빠른 주석 토글
+Plug 'tpope/vim-commentary'
+" 코드 스니펫
+Plug 'L3MON4D3/LuaSnip'
+Plug 'rafamadriz/friendly-snippets'
+" 들여쓰기 가이드라인
+Plug 'lukas-reineke/indent-blankline.nvim'
+" 동일 변수 하이라이트
+Plug 'RRethy/vim-illuminate'
+" 무지개 괄호
+Plug 'HiPhish/rainbow-delimiters.nvim'
+" 색상 코드 미리보기
+Plug 'norcalli/nvim-colorizer.lua'
+" 현재 위치 breadcrumb
+Plug 'SmiteshP/nvim-navic'
+" 함수 시그니처 힌트
+Plug 'ray-x/lsp_signature.nvim'
+" 심볼 아웃라인 사이드바
+Plug 'simrat39/symbols-outline.nvim'
 
 call plug#end()
 
@@ -269,6 +309,21 @@ if not pyright_running then
                 if client.server_capabilities.inlayHintProvider then
                     vim.lsp.inlay_hint.enable(true, { bufnr = bufnr })
                 end
+                
+                -- nvim-navic 연동
+                local navic = safe_require('nvim-navic')
+                if navic and client.server_capabilities.documentSymbolProvider then
+                    navic.attach(client, bufnr)
+                end
+                
+                -- lsp_signature 연동
+                local lsp_signature = safe_require('lsp_signature')
+                if lsp_signature then
+                    lsp_signature.on_attach({
+                        bind = true,
+                        handler_opts = { border = "rounded" }
+                    }, bufnr)
+                end
             end,
         })
     end
@@ -407,6 +462,31 @@ if vim_coach then
     vim_coach.setup()
 end
 
+-- nvim-treesitter 설정
+local treesitter = safe_require('nvim-treesitter.configs')
+if treesitter then
+    treesitter.setup({
+        ensure_installed = {
+            "python", "lua", "vim", "javascript", "html", "css", 
+            "json", "yaml", "toml", "markdown", "bash", "dockerfile"
+        },
+        sync_install = false,
+        auto_install = true,
+        highlight = {
+            enable = true,
+            additional_vim_regex_highlighting = false,
+        },
+        indent = {
+            enable = true
+        },
+        rainbow = {
+            enable = true,
+            extended_mode = true,
+            max_file_lines = nil,
+        }
+    })
+end
+
 -- Dashboard 설정 (수정된 부분 - 에러 처리 개선)
 local dashboard_ok = safe_require('config.dashboard')
 if not dashboard_ok then
@@ -440,6 +520,393 @@ if not dashboard_ok then
             }
         })
     end
+end
+
+-- =================================
+-- 편의성 및 시각화 플러그인 설정
+-- =================================
+
+-- nvim-autopairs 설정
+local autopairs = safe_require('nvim-autopairs')
+if autopairs then
+    autopairs.setup({
+        check_ts = true, -- treesitter 사용
+        disable_filetype = { "TelescopePrompt" },
+    })
+    
+    -- cmp와 autopairs 연동
+    local cmp_autopairs = safe_require('nvim-autopairs.completion.cmp')
+    local cmp = safe_require('cmp')
+    if cmp and cmp_autopairs then
+        cmp.event:on('confirm_done', cmp_autopairs.on_confirm_done())
+    end
+end
+
+-- LuaSnip 설정
+local luasnip = safe_require('luasnip')
+if luasnip then
+    -- friendly-snippets 로드
+    require("luasnip.loaders.from_vscode").lazy_load()
+    
+    -- 스니펫 키맵
+    vim.keymap.set({"i", "s"}, "<C-k>", function()
+        if luasnip.expand_or_jumpable() then
+            luasnip.expand_or_jump()
+        end
+    end)
+    
+    vim.keymap.set({"i", "s"}, "<C-j>", function()
+        if luasnip.jumpable(-1) then
+            luasnip.jump(-1)
+        end
+    end)
+end
+
+-- indent-blankline 설정 (들여쓰기 가이드라인)
+local ibl = safe_require('ibl')
+if ibl then
+    ibl.setup({
+        indent = {
+            char = "│",
+            tab_char = "│",
+        },
+        scope = {
+            enabled = true,
+            char = "┃",  -- 현재 스코프용 굵은 문자
+            show_start = true,
+            show_end = true,
+            injected_languages = false,
+            highlight = { "IblScope" },
+            priority = 500,
+            include = {
+                node_type = {
+                    ["*"] = {
+                        "function_definition",
+                        "class_definition", 
+                        "if_statement",
+                        "for_statement",
+                        "while_statement",
+                        "with_statement",
+                        "try_statement",
+                        "except_clause",
+                        "finally_clause",
+                        "elif_clause",
+                        "else_clause",
+                        "match_statement",
+                        "case_clause",
+                        "block",
+                        "compound_statement",
+                    },
+                    python = {
+                        "function_definition",
+                        "class_definition",
+                        "if_statement", 
+                        "for_statement",
+                        "while_statement",
+                        "with_statement",
+                        "try_statement",
+                        "except_clause",
+                        "finally_clause",
+                        "elif_clause",
+                        "else_clause",
+                        "match_statement",
+                        "case_clause",
+                        "block",
+                        "suite",
+                    },
+                    yaml = {
+                        "block_mapping",
+                        "block_sequence",
+                        "block_scalar",
+                        "flow_mapping",
+                        "flow_sequence",
+                        "block_node",
+                        "document",
+                        "stream",
+                        "block_mapping_pair",
+                        "block_sequence_item",
+                    },
+                    dockerfile = {
+                        "instruction",
+                        "run_instruction",
+                        "copy_instruction",
+                        "add_instruction",
+                        "workdir_instruction",
+                        "env_instruction",
+                        "expose_instruction",
+                        "volume_instruction",
+                        "user_instruction",
+                        "label_instruction",
+                        "arg_instruction",
+                        "onbuild_instruction",
+                        "stopsignal_instruction",
+                        "healthcheck_instruction",
+                        "shell_instruction",
+                        "maintainer_instruction",
+                        "cross_build_instruction",
+                    }
+                }
+            }
+        },
+        exclude = {
+            filetypes = {
+                "help", "alpha", "dashboard", "neo-tree", "Trouble", "lazy"
+            }
+        }
+    })
+    
+    -- 스코프 하이라이트 색상 설정
+    vim.api.nvim_set_hl(0, "IblScope", { fg = "#E5C07B", bold = true })
+    
+    -- 파일 타입별 추가 설정
+    vim.api.nvim_create_autocmd("FileType", {
+        pattern = "python",
+        callback = function()
+            -- Python에서 더 세밀한 scope 감지를 위한 설정
+            vim.opt_local.shiftwidth = 4
+            vim.opt_local.tabstop = 4
+            vim.opt_local.softtabstop = 4
+        end
+    })
+    
+    vim.api.nvim_create_autocmd("FileType", {
+        pattern = { "yaml", "yml" },
+        callback = function()
+            -- YAML 파일 설정
+            vim.opt_local.shiftwidth = 2
+            vim.opt_local.tabstop = 2
+            vim.opt_local.softtabstop = 2
+            vim.opt_local.expandtab = true
+        end
+    })
+    
+    vim.api.nvim_create_autocmd("FileType", {
+        pattern = { "dockerfile", "docker" },
+        callback = function()
+            -- Dockerfile 설정
+            vim.opt_local.shiftwidth = 4
+            vim.opt_local.tabstop = 4
+            vim.opt_local.softtabstop = 4
+            vim.opt_local.expandtab = true
+        end
+    })
+end
+
+-- vim-illuminate 설정 (동일 변수 하이라이트)
+local illuminate = safe_require('illuminate')
+if illuminate then
+    illuminate.configure({
+        providers = {
+            'lsp',
+            'treesitter',
+            'regex',
+        },
+        delay = 200,
+        filetype_overrides = {},
+        filetypes_denylist = {
+            'dirbuf',
+            'dirvish',
+            'fugitive',
+        },
+        under_cursor = true,
+    })
+    
+    -- 키맵 설정
+    vim.keymap.set('n', '<leader>]', function() illuminate.goto_next_reference() end)
+    vim.keymap.set('n', '<leader>[', function() illuminate.goto_prev_reference() end)
+end
+
+-- nvim-colorizer 설정 (색상 코드 미리보기)
+local colorizer = safe_require('colorizer')
+if colorizer then
+    colorizer.setup({
+        filetypes = {
+            'css',
+            'javascript',
+            'html',
+            'lua',
+            'vim',
+        },
+        user_default_options = {
+            RGB = true,         -- #RGB hex codes
+            RRGGBB = true,      -- #RRGGBB hex codes
+            names = true,       -- "Name" codes like Blue or blue
+            RRGGBBAA = true,    -- #RRGGBBAA hex codes
+            rgb_fn = true,      -- CSS rgb() and rgba() functions
+            hsl_fn = true,      -- CSS hsl() and hsla() functions
+            css = true,         -- Enable all CSS features
+            css_fn = true,      -- Enable all CSS *functions*
+        },
+    })
+end
+
+-- rainbow-delimiters 설정 (무지개 괄호)
+local rainbow_delimiters = safe_require('rainbow-delimiters')
+if rainbow_delimiters then
+    -- 먼저 하이라이트 그룹을 정의
+    local colors = {
+        "#E06C75", -- Red
+        "#E5C07B", -- Yellow
+        "#61AFEF", -- Blue
+        "#D19A66", -- Orange
+        "#98C379", -- Green
+        "#C678DD", -- Violet/Purple
+        "#56B6C2", -- Cyan
+    }
+    
+    -- 하이라이트 그룹 설정
+    for i, color in ipairs(colors) do
+        local group_names = {
+            "RainbowDelimiterRed",
+            "RainbowDelimiterYellow",
+            "RainbowDelimiterBlue", 
+            "RainbowDelimiterOrange",
+            "RainbowDelimiterGreen",
+            "RainbowDelimiterViolet",
+            "RainbowDelimiterCyan"
+        }
+        
+        if group_names[i] then
+            vim.api.nvim_set_hl(0, group_names[i], { fg = color, bold = true })
+        end
+    end
+    
+    -- rainbow-delimiters 설정
+    vim.g.rainbow_delimiters = {
+        strategy = {
+            [''] = rainbow_delimiters.strategy['global'],
+            python = rainbow_delimiters.strategy['global'],
+            lua = rainbow_delimiters.strategy['local'],
+        },
+        query = {
+            [''] = 'rainbow-delimiters',
+            lua = 'rainbow-blocks',
+        },
+        priority = {
+            [''] = 110,
+            lua = 210,
+        },
+        highlight = {
+            'RainbowDelimiterRed',
+            'RainbowDelimiterYellow', 
+            'RainbowDelimiterBlue',
+            'RainbowDelimiterOrange',
+            'RainbowDelimiterGreen',
+            'RainbowDelimiterViolet',
+            'RainbowDelimiterCyan',
+        },
+    }
+end
+
+-- nvim-navic 설정 (breadcrumb)
+local navic = safe_require('nvim-navic')
+if navic then
+    navic.setup({
+        icons = {
+            File          = " ",
+            Module        = " ",
+            Namespace     = " ",
+            Package       = " ",
+            Class         = " ",
+            Method        = " ",
+            Property      = " ",
+            Field         = " ",
+            Constructor   = " ",
+            Enum          = "練",
+            Interface     = "練",
+            Function      = " ",
+            Variable      = " ",
+            Constant      = " ",
+            String        = " ",
+            Number        = " ",
+            Boolean       = "◩ ",
+            Array         = " ",
+            Object        = " ",
+            Key           = " ",
+            Null          = "ﳠ ",
+            EnumMember    = " ",
+            Struct        = " ",
+            Event         = " ",
+            Operator      = " ",
+            TypeParameter = " ",
+        },
+        lsp = {
+            auto_attach = true,
+            preference = nil,
+        },
+        highlight = true,
+        separator = " > ",
+        depth_limit = 0,
+        depth_limit_indicator = "..",
+    })
+end
+
+-- symbols-outline 설정
+local symbols_outline = safe_require('symbols-outline')
+if symbols_outline then
+    symbols_outline.setup({
+        highlight_hovered_item = true,
+        show_guides = true,
+        auto_preview = false,
+        position = 'right',
+        relative_width = true,
+        width = 25,
+        auto_close = false,
+        show_numbers = false,
+        show_relative_numbers = false,
+        show_symbol_details = true,
+        preview_bg_highlight = 'Pmenu',
+        autofold_depth = nil,
+        auto_unfold_hover = true,
+        fold_markers = { '', '' },
+        wrap = false,
+        keymaps = {
+            close = {"<Esc>", "q"},
+            goto_location = "<Cr>",
+            focus_location = "o",
+            hover_symbol = "<C-space>",
+            toggle_preview = "K",
+            rename_symbol = "r",
+            code_actions = "a",
+            fold = "h",
+            unfold = "l",
+            fold_all = "W",
+            unfold_all = "E",
+            fold_reset = "R",
+        },
+        lsp_blacklist = {},
+        symbol_blacklist = {},
+    })
+end
+
+-- lsp_signature 설정
+local lsp_signature = safe_require('lsp_signature')
+if lsp_signature then
+    lsp_signature.setup({
+        bind = true,
+        handler_opts = {
+            border = "rounded"
+        },
+        floating_window = true,
+        floating_window_above_cur_line = true,
+        fix_pos = false,
+        hint_enable = true,
+        hint_prefix = "🐍 ",
+        hint_scheme = "String",
+        hi_parameter = "LspSignatureActiveParameter",
+        max_height = 12,
+        max_width = 80,
+        always_trigger = false,
+        auto_close_after = nil,
+        extra_trigger_chars = {},
+        zindex = 200,
+        padding = '',
+        transparency = nil,
+        shadow_blend = 36,
+        shadow_guibg = 'Black',
+        timer_interval = 200,
+        toggle_key = nil,
+    })
 end
 
 EOF
@@ -576,6 +1043,20 @@ nnoremap <silent> <leader>lg :LazyGit<CR>
 nnoremap <silent> <leader>gs :Git<CR>
 nnoremap <silent> <leader>gc :Git commit<CR>
 nnoremap <silent> <leader>gp :Git push<CR>
+
+" Git 상태 미리보기 키맵 (Gitsigns)
+nnoremap <leader>gh :Gitsigns preview_hunk<CR>
+nnoremap <leader>gb :Gitsigns blame_line<CR>
+nnoremap <leader>gr :Gitsigns reset_hunk<CR>
+nnoremap <leader>gu :Gitsigns undo_stage_hunk<CR>
+
+" Python 가상환경 키맵
+nnoremap <leader>ve :lua require('swenv.api').pick_venv()<CR>
+nnoremap <leader>vc :lua print(require('swenv.api').get_current_venv())<CR>
+
+" 심볼 아웃라인 키맵
+nnoremap <leader>so :SymbolsOutline<CR>
+nnoremap <F4> :SymbolsOutline<CR>
 
 " CopilotChat 키맵 설정
 let g:copilot_no_tab_map = v:true
