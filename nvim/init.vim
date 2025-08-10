@@ -12,6 +12,12 @@ set fileencodings=utf-8,euc-kr,cp949
 set langmenu=ko_KR.UTF-8
 set background=dark " or light if you want light mode
 
+" 기본 탭 설정 (4 spaces)
+set tabstop=4
+set shiftwidth=4
+set softtabstop=4
+set expandtab
+
 " =================================
 " 파일 타입별 자동 설정
 " =================================
@@ -117,6 +123,9 @@ Plug 'RRethy/vim-illuminate'
 Plug 'HiPhish/rainbow-delimiters.nvim'
 " 색상 코드 미리보기
 Plug 'norcalli/nvim-colorizer.lua'
+" 코드 폴딩
+Plug 'kevinhwang91/nvim-ufo'
+Plug 'kevinhwang91/promise-async'
 " 현재 위치 breadcrumb
 Plug 'SmiteshP/nvim-navic'
 " 함수 시그니처 힌트
@@ -486,6 +495,9 @@ if treesitter then
             end,
         },
         indent = {
+            enable = true
+        },
+        fold = {
             enable = true
         },
         rainbow = {
@@ -969,6 +981,100 @@ if barbar then
     vim.api.nvim_set_hl(0, 'BufferVisibleNumber', { fg = '#D5C4A1' })   -- 보이는 버퍼 번호 (회백색)
     vim.api.nvim_set_hl(0, 'BufferVisible', { fg = '#D5C4A1' })         -- 보이는 파일명 (회백색)
 end
+
+-- =================================
+-- 코드 폴딩 설정 (nvim-ufo + pretty-fold)
+-- =================================
+
+-- vim 옵션 설정  
+vim.o.foldcolumn = '1' -- 폴드 컬럼 표시
+vim.o.foldlevel = 99 -- 높은 폴드 레벨로 시작 (모든 폴드가 열린 상태)
+vim.o.foldlevelstart = 99
+vim.o.foldenable = true
+
+
+-- nvim-ufo 설정
+local ufo = safe_require('ufo')
+if ufo then
+    ufo.setup({
+        provider_selector = function(bufnr, filetype, buftype)
+            if filetype == 'python' then
+                return {'indent'}  -- Python은 indent 기반으로 폴딩
+            else
+                return {'treesitter', 'indent'}
+            end
+        end,
+        preview = {
+            win_config = {
+                border = {'', '─', '', '', '', '─', '', ''},
+                winhighlight = 'Normal:Folded',
+                winblend = 0
+            },
+            mappings = {
+                scrollU = '<C-u>',
+                scrollD = '<C-d>',
+                jumpTop = '[',
+                jumpBot = ']'
+            }
+        }
+    })
+    
+    -- 폴딩 키맵
+    vim.keymap.set('n', 'zR', ufo.openAllFolds)
+    vim.keymap.set('n', 'zM', ufo.closeAllFolds)
+    vim.keymap.set('n', 'zr', ufo.openFoldsExceptKinds)
+    vim.keymap.set('n', 'zm', ufo.closeFoldsWith)
+    vim.keymap.set('n', 'K', function()
+        local winid = ufo.peekFoldedLinesUnderCursor()
+        if not winid then
+            vim.lsp.buf.hover()
+        end
+    end)
+end
+
+-- 폴딩 표시 커스터마이징 (화살표만 표시)
+vim.o.fillchars = [[eob: ,fold: ,foldopen:▼,foldsep: ,foldclose:▶]]
+
+-- 단순하게 foldcolumn만 사용 (숫자는 테마에서 숨김 처리)
+vim.o.foldcolumn = '1'
+
+-- 커스텀 폴드 텍스트 (화살표 + 라인 수)
+local function custom_fold_text()
+    local line = vim.fn.getline(vim.v.foldstart)
+    local line_count = vim.v.foldend - vim.v.foldstart + 1
+    return "▶ " .. line:gsub("^%s*", "") .. " (" .. line_count .. " lines)"
+end
+
+_G.custom_fold_text = custom_fold_text
+vim.o.foldtext = 'v:lua.custom_fold_text()'
+
+-- Python 전용 폴딩 설정 (indent 기반으로 단순화)
+vim.api.nvim_create_autocmd("FileType", {
+    pattern = "python", 
+    callback = function()
+        -- 간단한 indent 기반 폴딩 사용
+        vim.wo.foldmethod = 'indent'
+        vim.wo.foldlevel = 99
+    end
+})
+
+
+-- 폴드 하이라이트 설정
+vim.api.nvim_set_hl(0, 'Folded', { 
+    fg = '#98c379', 
+    bg = '#3e4452', 
+    bold = true 
+})
+vim.api.nvim_set_hl(0, 'FoldColumn', { 
+    fg = '#98c379', 
+    bg = 'none' 
+})
+
+-- 기본 폴드 컬럼 색상 설정
+vim.api.nvim_set_hl(0, 'FoldColumn', { 
+    fg = '#5c6370',  -- 회색으로 숫자 표시
+    bg = 'none'
+})
 
 EOF
 
