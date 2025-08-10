@@ -477,6 +477,13 @@ if treesitter then
         highlight = {
             enable = true,
             additional_vim_regex_highlighting = false,
+            disable = function(lang, buf)
+                local max_filesize = 100 * 1024 -- 100 KB
+                local ok, stats = pcall(vim.loop.fs_stat, vim.api.nvim_buf_get_name(buf))
+                if ok and stats and stats.size > max_filesize then
+                    return true
+                end
+            end,
         },
         indent = {
             enable = true
@@ -918,6 +925,51 @@ if lsp_signature then
     })
 end
 
+-- barbar.nvim 설정 (실제 버퍼 번호 표시)
+vim.g.barbar_auto_setup = false
+local barbar = safe_require('barbar')
+if barbar then
+    barbar.setup({
+        animation = false,
+        auto_hide = false,
+        tabpages = true,
+        clickable = true,
+        icons = {
+            buffer_index = false,    -- 인덱스 대신
+            buffer_number = true,    -- 실제 버퍼 번호 사용
+            button = '×',            -- 닫기 버튼 활성화
+            diagnostics = {
+                [vim.diagnostic.severity.ERROR] = {enabled = false},  -- 에러 아이콘 끄기
+                [vim.diagnostic.severity.WARN] = {enabled = false},   -- 경고 아이콘 끄기
+                [vim.diagnostic.severity.INFO] = {enabled = false},
+                [vim.diagnostic.severity.HINT] = {enabled = false},
+            },
+            gitsigns = {
+                added = {enabled = true, icon = '+'},
+                changed = {enabled = true, icon = '~'},
+                deleted = {enabled = true, icon = '-'},
+            },
+            filetype = {
+                enabled = true,
+            },
+            separator = {left = '', right = ''},
+            modified = {button = '●'},
+            inactive = {button = '×'},  -- 비활성 탭에도 닫기 버튼
+        },
+        maximum_padding = 1,
+        minimum_padding = 1,
+        maximum_length = 30,
+    })
+    
+    -- 버퍼 번호와 파일명 색상 통일 설정
+    vim.api.nvim_set_hl(0, 'BufferCurrentNumber', { fg = '#FE8019', bold = true })  -- 활성 버퍼 번호 (주황색, 볼드)
+    vim.api.nvim_set_hl(0, 'BufferCurrent', { fg = '#FE8019', bold = true })        -- 활성 파일명 (주황색, 볼드)
+    vim.api.nvim_set_hl(0, 'BufferInactiveNumber', { fg = '#EBDBB2' })  -- 비활성 버퍼 번호 (밝은 회색)
+    vim.api.nvim_set_hl(0, 'BufferInactive', { fg = '#EBDBB2' })        -- 비활성 파일명 (밝은 회색)
+    vim.api.nvim_set_hl(0, 'BufferVisibleNumber', { fg = '#D5C4A1' })   -- 보이는 버퍼 번호 (회백색)
+    vim.api.nvim_set_hl(0, 'BufferVisible', { fg = '#D5C4A1' })         -- 보이는 파일명 (회백색)
+end
+
 EOF
 
 " =================================
@@ -1081,3 +1133,19 @@ imap <C-.> <Plug>(copilot-next)
 highlight LineNr ctermfg=244
 highlight CursorLineNr ctermfg=220
 highlight CursorLine ctermbg=236
+
+" Treesitter 에러 방지용 대체 키맵
+nnoremap dG :.,$d<CR>
+nnoremap yG :.,$y<CR>
+
+" 버퍼 간 빠른 전환 (번호 입력)
+nnoremap <leader>1 :b1<CR>
+nnoremap <leader>2 :b2<CR>
+nnoremap <leader>3 :b3<CR>
+nnoremap <leader>4 :b4<CR>
+nnoremap <leader>5 :b5<CR>
+nnoremap <leader>6 :b6<CR>
+nnoremap <leader>7 :b7<CR>
+nnoremap <leader>8 :b8<CR>
+nnoremap <leader>9 :b9<CR>
+nnoremap <leader>0 :b10<CR>
