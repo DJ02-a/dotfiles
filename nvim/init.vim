@@ -30,7 +30,8 @@ autocmd FileType json setlocal tabstop=2 shiftwidth=2 softtabstop=2 expandtab
 autocmd FileType json nnoremap <buffer> <leader>jf :%!python -m json.tool<CR>
 
 " Docker 파일 설정
-autocmd BufNewFile,BufRead Dockerfile*,docker-compose*.yml,docker-compose*.yaml setlocal filetype=dockerfile
+autocmd BufNewFile,BufRead Dockerfile* setlocal filetype=dockerfile
+autocmd BufNewFile,BufRead docker-compose*.yml,docker-compose*.yaml setlocal filetype=yaml
 autocmd FileType dockerfile setlocal tabstop=4 shiftwidth=4 softtabstop=4 expandtab
 
 call plug#begin('~/.config/nvim/plugged')
@@ -1075,6 +1076,8 @@ vim.api.nvim_set_hl(0, 'FoldColumn', {
     fg = '#5c6370',  -- 회색으로 숫자 표시
     bg = 'none'
 })
+
+
 
 EOF
 
