@@ -249,15 +249,54 @@ require('lualine').setup {
   sections = {
     lualine_a = {'mode'},
     lualine_b = {'branch', 'diff', 'diagnostics'},
-    lualine_c = {'filename'},
-    lualine_x = {'encoding', 'fileformat', 'filetype'},
+    lualine_c = {
+      {
+        'filename',
+        path = 1,  -- 0: 파일명만, 1: 상대 경로, 2: 절대 경로, 3: 절대 경로와 줄임표
+        shorting_target = 40,  -- 너무 긴 경로 줄이기
+        symbols = {
+          modified = ' [+]',
+          readonly = ' [RO]',
+          unnamed = '[No Name]',
+          newfile = '[New]',
+        }
+      }
+    },
+    lualine_x = {
+      'encoding',
+      {
+        function()
+          -- macOS에서는 항상 Mac 아이콘 표시
+          if vim.fn.has('mac') == 1 or vim.fn.has('macunix') == 1 or vim.loop.os_uname().sysname == 'Darwin' then
+            return ''  -- Mac 아이콘 (e711)
+          elseif vim.fn.has('win32') == 1 or vim.fn.has('win64') == 1 then
+            return '󰖳'  -- Windows 아이콘 (f17a)
+          else
+            return ''  -- Linux 아이콘 (f17c)
+          end
+        end,
+        color = { fg = '#FE8019' },  -- 주황색으로 강조
+      },
+      'filetype'
+    },
     lualine_y = {'progress'},
     lualine_z = {'location'}
   },
   inactive_sections = {
     lualine_a = {},
     lualine_b = {},
-    lualine_c = {'filename'},
+    lualine_c = {
+      {
+        'filename',
+        path = 1,  -- 상대 경로로 표시
+        symbols = {
+          modified = ' [+]',
+          readonly = ' [RO]',
+          unnamed = '[No Name]',
+          newfile = '[New]',
+        }
+      }
+    },
     lualine_x = {'location'},
     lualine_y = {},
     lualine_z = {}
