@@ -1064,12 +1064,372 @@ if ufo then
     vim.keymap.set('n', 'zM', ufo.closeAllFolds)
     vim.keymap.set('n', 'zr', ufo.openFoldsExceptKinds)
     vim.keymap.set('n', 'zm', ufo.closeFoldsWith)
+    -- Global variables for enhanced hover
+    _G.hover_enhanced = {
+        info_winid = nil,
+        code_winid = nil,
+        current_params = nil,
+        show_info = false,
+        show_code = false,
+    }
+    
     vim.keymap.set('n', 'K', function()
         local winid = ufo.peekFoldedLinesUnderCursor()
         if not winid then
+            -- Store current position for enhanced hover features
+            local client = vim.lsp.get_clients({ bufnr = 0 })[1]
+            _G.hover_enhanced.current_params = vim.lsp.util.make_position_params(0, client and client.offset_encoding or 'utf-16')
+            -- Also store the current buffer and cursor position
+            _G.hover_enhanced.source_buf = vim.api.nvim_get_current_buf()
+            _G.hover_enhanced.cursor_pos = vim.api.nvim_win_get_cursor(0)
             vim.lsp.buf.hover()
         end
     end)
+    
+    -- <leader>r: Show additional info (Definition, Type, References)
+    vim.keymap.set('n', '<leader>r', function()
+        -- Always update to current position
+        local client = vim.lsp.get_clients({ bufnr = 0 })[1]
+        _G.hover_enhanced.current_params = vim.lsp.util.make_position_params(0, client and client.offset_encoding or 'utf-16')
+        _G.hover_enhanced.source_buf = vim.api.nvim_get_current_buf()
+        _G.hover_enhanced.cursor_pos = vim.api.nvim_win_get_cursor(0)
+        
+        if _G.hover_enhanced.show_info then
+            -- Hide info window
+            if _G.hover_enhanced.info_winid and vim.api.nvim_win_is_valid(_G.hover_enhanced.info_winid) then
+                vim.api.nvim_win_close(_G.hover_enhanced.info_winid, true)
+            end
+            _G.hover_enhanced.info_winid = nil
+            _G.hover_enhanced.show_info = false
+        else
+            -- Show info window
+            _G.show_enhanced_info()
+        end
+    end)
+    
+    -- <leader>i: Show/hide function/class code
+    vim.keymap.set('n', '<leader>i', function()
+        -- Always update to current position
+        local client = vim.lsp.get_clients({ bufnr = 0 })[1]
+        _G.hover_enhanced.current_params = vim.lsp.util.make_position_params(0, client and client.offset_encoding or 'utf-16')
+        _G.hover_enhanced.source_buf = vim.api.nvim_get_current_buf()
+        _G.hover_enhanced.cursor_pos = vim.api.nvim_win_get_cursor(0)
+        
+        if _G.hover_enhanced.show_code then
+            -- Hide code window
+            if _G.hover_enhanced.code_winid and vim.api.nvim_win_is_valid(_G.hover_enhanced.code_winid) then
+                vim.api.nvim_win_close(_G.hover_enhanced.code_winid, true)
+            end
+            _G.hover_enhanced.code_winid = nil
+            _G.hover_enhanced.show_code = false
+        else
+            -- Show code window
+            _G.show_definition_code()
+        end
+    end)
+    
+    -- Function to show enhanced information
+    _G.show_enhanced_info = function()
+        local params = _G.hover_enhanced.current_params
+        if not params then return end
+        
+        local info_lines = {}
+        local completed_requests = 0
+        local total_requests = 3
+        
+        -- Get definition info
+        vim.lsp.buf_request(0, 'textDocument/definition', params, function(def_err, def_result)
+            if def_result and def_result[1] then
+                local uri = def_result[1].uri
+                local range = def_result[1].range
+                local file_path = vim.uri_to_fname(uri)
+                local line_num = range.start.line + 1
+                table.insert(info_lines, "📍 Definition: " .. vim.fn.fnamemodify(file_path, ":t") .. ":" .. line_num)
+            else
+                table.insert(info_lines, "📍 Definition: Not found")
+            end
+            
+            completed_requests = completed_requests + 1
+            if completed_requests == total_requests then
+                _G.display_info_window(info_lines)
+            end
+        end)
+        
+        -- Get type definition info
+        vim.lsp.buf_request(0, 'textDocument/typeDefinition', params, function(type_err, type_result)
+            if type_result and type_result[1] then
+                local type_uri = type_result[1].uri
+                local type_range = type_result[1].range
+                local type_file = vim.uri_to_fname(type_uri)
+                local type_line = type_range.start.line + 1
+                table.insert(info_lines, "🏷️  Type: " .. vim.fn.fnamemodify(type_file, ":t") .. ":" .. type_line)
+            else
+                table.insert(info_lines, "🏷️  Type: Not found")
+            end
+            
+            completed_requests = completed_requests + 1
+            if completed_requests == total_requests then
+                _G.display_info_window(info_lines)
+            end
+        end)
+        
+        -- Get references count and locations
+        vim.lsp.buf_request(0, 'textDocument/references', vim.tbl_extend('force', params, {
+            context = { includeDeclaration = false }
+        }), function(ref_err, ref_result)
+            if ref_result and #ref_result > 0 then
+                table.insert(info_lines, "🔗 References: " .. #ref_result .. " found")
+                table.insert(info_lines, "")
+                
+                -- Group references by file
+                local refs_by_file = {}
+                for _, ref in ipairs(ref_result) do
+                    local file_path = vim.uri_to_fname(ref.uri)
+                    local file_name = vim.fn.fnamemodify(file_path, ":t")
+                    local line_num = ref.range.start.line + 1
+                    
+                    if not refs_by_file[file_name] then
+                        refs_by_file[file_name] = {}
+                    end
+                    table.insert(refs_by_file[file_name], {
+                        line = line_num,
+                        path = file_path
+                    })
+                end
+                
+                -- Sort and display references
+                for file_name, refs in pairs(refs_by_file) do
+                    table.insert(info_lines, "📄 " .. file_name .. ":")
+                    
+                    -- Sort by line number
+                    table.sort(refs, function(a, b) return a.line < b.line end)
+                    
+                    for _, ref in ipairs(refs) do
+                        -- Try to get the actual line content for context
+                        local line_content = ""
+                        local file = io.open(ref.path, 'r')
+                        if file then
+                            local current_line = 1
+                            for line in file:lines() do
+                                if current_line == ref.line then
+                                    line_content = line:gsub("^%s+", ""):gsub("%s+$", "") -- trim whitespace
+                                    break
+                                end
+                                current_line = current_line + 1
+                            end
+                            file:close()
+                        end
+                        
+                        if line_content ~= "" and #line_content < 60 then
+                            table.insert(info_lines, string.format("   L%d: %s", ref.line, line_content))
+                        else
+                            table.insert(info_lines, string.format("   L%d", ref.line))
+                        end
+                    end
+                    table.insert(info_lines, "")
+                end
+            else
+                table.insert(info_lines, "🔗 References: 0 found")
+            end
+            
+            completed_requests = completed_requests + 1
+            if completed_requests == total_requests then
+                _G.display_info_window(info_lines)
+            end
+        end)
+    end
+    
+    -- Function to display info window
+    _G.display_info_window = function(lines)
+        if #lines == 0 then
+            lines = {"No additional information available"}
+        end
+        
+        local bufnr = vim.api.nvim_create_buf(false, true)
+        vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
+        vim.api.nvim_buf_set_option(bufnr, 'modifiable', false)
+        vim.api.nvim_buf_set_option(bufnr, 'filetype', 'markdown')
+        
+        -- Calculate width and height based on content
+        local max_line_length = 0
+        for _, line in ipairs(lines) do
+            max_line_length = math.max(max_line_length, #line)
+        end
+        
+        local width = math.max(60, math.min(100, max_line_length + 4))
+        local height = math.min(25, math.max(5, #lines + 2))
+        
+        _G.hover_enhanced.info_winid = vim.api.nvim_open_win(bufnr, true, {
+            relative = 'cursor',
+            width = width,
+            height = height,
+            row = 2,
+            col = 0,
+            border = 'rounded',
+            title = ' Additional Info ',
+            title_pos = 'center',
+            style = 'minimal',
+        })
+        
+        -- Set window highlight and enable scrolling
+        vim.api.nvim_win_set_option(_G.hover_enhanced.info_winid, 'winhl', 'Normal:PmenuSel,FloatBorder:PmenuSel')
+        vim.api.nvim_win_set_option(_G.hover_enhanced.info_winid, 'wrap', true)
+        
+        -- Set up keymaps for the info window
+        vim.keymap.set('n', 'q', function()
+            if _G.hover_enhanced.info_winid and vim.api.nvim_win_is_valid(_G.hover_enhanced.info_winid) then
+                vim.api.nvim_win_close(_G.hover_enhanced.info_winid, true)
+            end
+            _G.hover_enhanced.info_winid = nil
+            _G.hover_enhanced.show_info = false
+        end, { buffer = bufnr, silent = true })
+        
+        vim.keymap.set('n', '<Esc>', function()
+            if _G.hover_enhanced.info_winid and vim.api.nvim_win_is_valid(_G.hover_enhanced.info_winid) then
+                vim.api.nvim_win_close(_G.hover_enhanced.info_winid, true)
+            end
+            _G.hover_enhanced.info_winid = nil
+            _G.hover_enhanced.show_info = false
+        end, { buffer = bufnr, silent = true })
+        
+        _G.hover_enhanced.show_info = true
+    end
+    
+    -- Function to show definition code
+    _G.show_definition_code = function()
+        local params = _G.hover_enhanced.current_params
+        if not params then return end
+        
+        vim.lsp.buf_request(0, 'textDocument/definition', params, function(def_err, def_result)
+            if not def_result or not def_result[1] then
+                vim.notify("Definition not found", vim.log.levels.WARN)
+                return
+            end
+            
+            local uri = def_result[1].uri
+            local range = def_result[1].range
+            local file_path = vim.uri_to_fname(uri)
+            
+            -- Read the entire file
+            local file_lines = {}
+            local file = io.open(file_path, 'r')
+            if file then
+                for line in file:lines() do
+                    table.insert(file_lines, line)
+                end
+                file:close()
+            else
+                vim.notify("Cannot read file: " .. file_path, vim.log.levels.ERROR)
+                return
+            end
+            
+            -- Get the definition line (1-based)
+            local def_line = range.start.line + 1
+            local filetype = vim.fn.fnamemodify(file_path, ":e")
+            
+            -- Prepare all lines with line numbers
+            local display_lines = {}
+            for i, line in ipairs(file_lines) do
+                table.insert(display_lines, string.format("%4d: %s", i, line))
+            end
+            
+            if #display_lines == 0 then
+                display_lines = {"No code available"}
+            end
+            
+            -- Create buffer and show code window
+            local bufnr = vim.api.nvim_create_buf(false, true)
+            vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, display_lines)
+            vim.api.nvim_buf_set_option(bufnr, 'modifiable', false)
+            vim.api.nvim_buf_set_option(bufnr, 'filetype', filetype)
+            
+            local width = math.min(120, vim.o.columns - 10)
+            local height = math.min(30, math.max(15, math.min(#display_lines + 2, vim.o.lines - 10)))
+            
+            _G.hover_enhanced.code_winid = vim.api.nvim_open_win(bufnr, true, {
+                relative = 'cursor',
+                width = width,
+                height = height,
+                row = 4,
+                col = 0,
+                border = 'rounded',
+                title = ' Full File: ' .. vim.fn.fnamemodify(file_path, ":t"),
+                title_pos = 'center',
+                style = 'minimal',
+            })
+            
+            -- Set window highlight and enable syntax
+            vim.api.nvim_win_set_option(_G.hover_enhanced.code_winid, 'winhl', 'Normal:Normal,FloatBorder:FloatBorder')
+            
+            -- Move cursor to the definition line and center it
+            vim.api.nvim_win_set_cursor(_G.hover_enhanced.code_winid, {def_line, 0})
+            vim.api.nvim_feedkeys('zz', 'n', false) -- Center the line in the window
+            
+            -- Set up keymaps for the code window
+            vim.keymap.set('n', 'q', function()
+                if _G.hover_enhanced.code_winid and vim.api.nvim_win_is_valid(_G.hover_enhanced.code_winid) then
+                    vim.api.nvim_win_close(_G.hover_enhanced.code_winid, true)
+                end
+                _G.hover_enhanced.code_winid = nil
+                _G.hover_enhanced.show_code = false
+            end, { buffer = bufnr, silent = true })
+            
+            vim.keymap.set('n', '<Esc>', function()
+                if _G.hover_enhanced.code_winid and vim.api.nvim_win_is_valid(_G.hover_enhanced.code_winid) then
+                    vim.api.nvim_win_close(_G.hover_enhanced.code_winid, true)
+                end
+                _G.hover_enhanced.code_winid = nil
+                _G.hover_enhanced.show_code = false
+            end, { buffer = bufnr, silent = true })
+            
+            -- Enter: Go to line in the actual file
+            vim.keymap.set('n', '<CR>', function()
+                -- Get current cursor position in the code window
+                local cursor_pos = vim.api.nvim_win_get_cursor(_G.hover_enhanced.code_winid)
+                local line_in_window = cursor_pos[1]
+                
+                -- Get the line content to extract the line number
+                local line_content = vim.api.nvim_buf_get_lines(bufnr, line_in_window - 1, line_in_window, false)[1]
+                if not line_content then return end
+                
+                -- Extract line number from format "   123: code content"
+                local line_num = line_content:match("^%s*(%d+):")
+                if not line_num then return end
+                
+                line_num = tonumber(line_num)
+                
+                -- Close the code window
+                if _G.hover_enhanced.code_winid and vim.api.nvim_win_is_valid(_G.hover_enhanced.code_winid) then
+                    vim.api.nvim_win_close(_G.hover_enhanced.code_winid, true)
+                end
+                _G.hover_enhanced.code_winid = nil
+                _G.hover_enhanced.show_code = false
+                
+                -- Open or focus the file
+                local current_file = vim.fn.expand('%:p')
+                if current_file ~= file_path then
+                    -- If it's a different file, open it
+                    vim.cmd('edit ' .. vim.fn.fnameescape(file_path))
+                end
+                
+                -- Go to the specific line
+                vim.api.nvim_win_set_cursor(0, {line_num, 0})
+                vim.cmd('normal! zz') -- Center the line in the window
+                
+                -- Optional: highlight the line briefly without entering visual mode
+                local ns_id = vim.api.nvim_create_namespace('hover_highlight')
+                vim.api.nvim_buf_add_highlight(0, ns_id, 'Visual', line_num - 1, 0, -1)
+                
+                -- Clear highlight after 300ms
+                vim.defer_fn(function()
+                    vim.api.nvim_buf_clear_namespace(0, ns_id, 0, -1)
+                end, 300)
+                
+            end, { buffer = bufnr, silent = true })
+            
+            _G.hover_enhanced.show_code = true
+        end)
+    end
 end
 
 -- 폴딩 표시 커스터마이징 (화살표만 표시)
