@@ -83,6 +83,7 @@ function M.setup()
     window = {
       position = "left",
       width = 40,
+      auto_expand_width = false,
       mapping_options = {
         noremap = true,
         nowait = true,
@@ -260,6 +261,16 @@ function M.setup()
       }
     }
   })
+
+end
+
+-- Neo-tree 토글 후 창 크기 균등 분배하는 커스텀 함수
+function M.toggle_with_resize()
+  vim.cmd("Neotree toggle")
+  -- Neo-tree 토글 완료 후 창 크기 균등 분배
+  vim.defer_fn(function()
+    vim.cmd("wincmd =")
+  end, 150) -- 150ms 대기 후 창 크기 조정
 end
 
 return M

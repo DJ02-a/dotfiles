@@ -1539,7 +1539,7 @@ nnoremap K :lua vim.lsp.buf.hover()<CR>
 " Neo-tree 토글 키맵
 nnoremap <leader>n :Neotree toggle<CR>
 nnoremap <F3> :Neotree toggle<CR>
-nnoremap <C-n> :Neotree toggle<CR>
+nnoremap <C-n> :lua require('config.neotree').toggle_with_resize()<CR>
 
 " Neo-tree에서 현재 파일 찾기
 nnoremap <leader>nf :Neotree reveal<CR>
@@ -1572,6 +1572,9 @@ nnoremap <A-S-Tab> :bprev<CR>
 inoremap <A-Tab> <Esc>:bnext<CR>
 inoremap <A-S-Tab> <Esc>:bprev<CR>
 
+" Insert 모드에서 Shift+Tab으로 들여쓰기 감소
+inoremap <S-Tab> <C-D>
+
 " Option+숫자로 탭 인덱스 이동 (순차적 1~9)
 nnoremap <A-1> <Cmd>BufferGoto 1<CR>
 nnoremap <A-2> <Cmd>BufferGoto 2<CR>
@@ -1594,6 +1597,15 @@ nnoremap <leader>ff :Telescope find_files cwd=.<CR>
 nnoremap <leader>fb :Telescope buffers<CR>
 nnoremap <leader>fg :Telescope live_grep cwd=.<CR>
 nnoremap <leader>fh :Telescope help_tags<CR>
+
+" 코드 접기(Folding) 키 매핑
+nnoremap <space> za          " 스페이스로 접기/펼치기 토글
+nnoremap zR zR               " 모든 접기 펼치기 (기본 유지)  
+nnoremap zM zM               " 모든 접기 접기 (기본 유지)
+nnoremap zo zo               " 접기 펼치기 (기본 유지)
+nnoremap zc zc               " 접기 닫기 (기본 유지)
+nnoremap zj zj               " 다음 접기로 이동 (기본 유지)
+nnoremap zk zk               " 이전 접기로 이동 (기본 유지)
 
 " 버퍼 관리
 nnoremap <leader>b :ls<CR>

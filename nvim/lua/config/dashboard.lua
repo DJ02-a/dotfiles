@@ -306,9 +306,8 @@ vim.keymap.set('n', '<leader>dd', ':Dashboard<CR>', { desc = 'Open Dashboard' })
 -- Python 개발 전용 자동 명령어들
 local python_dashboard_group = vim.api.nvim_create_augroup("PythonDashboard", { clear = true })
 
-vim.api.nvim_create_autocmd("BufEnter", {
+vim.api.nvim_create_autocmd("VimEnter", {
   group = python_dashboard_group,
-  pattern = "*.py",
   callback = function()
     if vim.fn.filereadable("pyproject.toml") == 1 then
       vim.notify("📦 Poetry project detected", vim.log.levels.INFO)
@@ -320,7 +319,7 @@ vim.api.nvim_create_autocmd("BufEnter", {
       vim.notify("🐍 Virtual environment: " .. venv_name, vim.log.levels.INFO)
     end
   end,
-  desc = "Python project information"
+  desc = "Python project information on startup"
 })
 
 -- 설정 완료 알림
