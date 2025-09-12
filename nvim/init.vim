@@ -987,8 +987,8 @@ if barbar then
         tabpages = true,
         clickable = true,
         icons = {
-            buffer_index = false,    -- 인덱스 대신
-            buffer_number = true,    -- 실제 버퍼 번호 사용
+            buffer_index = true,     -- 순차적 인덱스 사용 (1, 2, 3...)
+            buffer_number = false,   -- 실제 버퍼 번호 비활성화
             button = '×',            -- 닫기 버튼 활성화
             diagnostics = {
                 [vim.diagnostic.severity.ERROR] = {enabled = false},  -- 에러 아이콘 끄기
@@ -1016,10 +1016,10 @@ if barbar then
     -- 버퍼 번호와 파일명 색상 통일 설정
     vim.api.nvim_set_hl(0, 'BufferCurrentNumber', { fg = '#FE8019', bold = true })  -- 활성 버퍼 번호 (주황색, 볼드)
     vim.api.nvim_set_hl(0, 'BufferCurrent', { fg = '#FE8019', bold = true })        -- 활성 파일명 (주황색, 볼드)
-    vim.api.nvim_set_hl(0, 'BufferInactiveNumber', { fg = '#EBDBB2' })  -- 비활성 버퍼 번호 (밝은 회색)
-    vim.api.nvim_set_hl(0, 'BufferInactive', { fg = '#EBDBB2' })        -- 비활성 파일명 (밝은 회색)
-    vim.api.nvim_set_hl(0, 'BufferVisibleNumber', { fg = '#D5C4A1' })   -- 보이는 버퍼 번호 (회백색)
-    vim.api.nvim_set_hl(0, 'BufferVisible', { fg = '#D5C4A1' })         -- 보이는 파일명 (회백색)
+    vim.api.nvim_set_hl(0, 'BufferInactiveNumber', { fg = '#EBDBB2', bold = true })  -- 비활성 버퍼 번호 (파일명과 동일한 밝은 회색)
+    vim.api.nvim_set_hl(0, 'BufferInactive', { fg = '#EBDBB2', bold = true })        -- 비활성 파일명 (밝은 회색)
+    vim.api.nvim_set_hl(0, 'BufferVisibleNumber', { fg = '#D5C4A1', bold = true })   -- 보이는 버퍼 번호 (밝은 회색, 굵게)
+    vim.api.nvim_set_hl(0, 'BufferVisible', { fg = '#D5C4A1', bold = true })         -- 보이는 파일명 (회백색)
 end
 
 -- =================================
@@ -1572,16 +1572,16 @@ nnoremap <A-S-Tab> :bprev<CR>
 inoremap <A-Tab> <Esc>:bnext<CR>
 inoremap <A-S-Tab> <Esc>:bprev<CR>
 
-" Option+숫자로 버퍼 직접 이동 (1~9)
-nnoremap <A-1> :b1<CR>
-nnoremap <A-2> :b2<CR>
-nnoremap <A-3> :b3<CR>
-nnoremap <A-4> :b4<CR>
-nnoremap <A-5> :b5<CR>
-nnoremap <A-6> :b6<CR>
-nnoremap <A-7> :b7<CR>
-nnoremap <A-8> :b8<CR>
-nnoremap <A-9> :b9<CR>
+" Option+숫자로 탭 인덱스 이동 (순차적 1~9)
+nnoremap <A-1> <Cmd>BufferGoto 1<CR>
+nnoremap <A-2> <Cmd>BufferGoto 2<CR>
+nnoremap <A-3> <Cmd>BufferGoto 3<CR>
+nnoremap <A-4> <Cmd>BufferGoto 4<CR>
+nnoremap <A-5> <Cmd>BufferGoto 5<CR>
+nnoremap <A-6> <Cmd>BufferGoto 6<CR>
+nnoremap <A-7> <Cmd>BufferGoto 7<CR>
+nnoremap <A-8> <Cmd>BufferGoto 8<CR>
+nnoremap <A-9> <Cmd>BufferGoto 9<CR>
 
 " 이전 파일로 빠른 전환
 nnoremap <leader><leader> <C-^>
@@ -1646,14 +1646,14 @@ highlight CursorLine ctermbg=236
 nnoremap dG :.,$d<CR>
 nnoremap yG :.,$y<CR>
 
-" 버퍼 간 빠른 전환 (번호 입력)
-nnoremap <leader>1 :b1<CR>
-nnoremap <leader>2 :b2<CR>
-nnoremap <leader>3 :b3<CR>
-nnoremap <leader>4 :b4<CR>
-nnoremap <leader>5 :b5<CR>
-nnoremap <leader>6 :b6<CR>
-nnoremap <leader>7 :b7<CR>
-nnoremap <leader>8 :b8<CR>
-nnoremap <leader>9 :b9<CR>
-nnoremap <leader>0 :b10<CR>
+" 리더키+숫자로 탭 인덱스 이동 (순차적)
+nnoremap <leader>1 <Cmd>BufferGoto 1<CR>
+nnoremap <leader>2 <Cmd>BufferGoto 2<CR>
+nnoremap <leader>3 <Cmd>BufferGoto 3<CR>
+nnoremap <leader>4 <Cmd>BufferGoto 4<CR>
+nnoremap <leader>5 <Cmd>BufferGoto 5<CR>
+nnoremap <leader>6 <Cmd>BufferGoto 6<CR>
+nnoremap <leader>7 <Cmd>BufferGoto 7<CR>
+nnoremap <leader>8 <Cmd>BufferGoto 8<CR>
+nnoremap <leader>9 <Cmd>BufferGoto 9<CR>
+nnoremap <leader>0 <Cmd>BufferGoto 10<CR>
