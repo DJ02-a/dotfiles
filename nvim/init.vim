@@ -473,6 +473,19 @@ if cmp then
             ['<CR>'] = cmp.mapping.confirm({ select = true }),
             ['<C-Space>'] = cmp.mapping.complete(),
             ['<C-e>'] = cmp.mapping.close(),
+            -- Python import picker 통합
+            ['<C-i>'] = cmp.mapping(function(fallback)
+                if vim.bo.filetype == 'python' and _G.python_import_picker then
+                    local word = vim.fn.expand('<cword>')
+                    if word and word ~= '' then
+                        _G.python_import_picker(word)
+                    else
+                        fallback()
+                    end
+                else
+                    fallback()
+                end
+            end, { 'i' }),
         })
     })
 end
