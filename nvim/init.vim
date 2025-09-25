@@ -88,7 +88,6 @@ Plug 'hrsh7th/cmp-path'
 " Python
 " Type Hints
 Plug 'nvimtools/none-ls.nvim'
-" Python Coverage
 Plug 'andythigpen/nvim-coverage'
 
 " github
@@ -316,22 +315,16 @@ require('lualine').setup {
   extensions = {}
 }
 
--- LSP 설정이 이미 존재하는지 확인
-local lsp_servers = vim.tbl_keys(require('lspconfig').util.available_servers())
+-- LSP 설정이 이미 존재하는지 확인 (nvim 0.11 새로운 방식)
 local pyright_running = false
-
-for _, server in ipairs(lsp_servers) do
-    if server == 'pyright' then
-        local clients = vim.lsp.get_clients({ name = 'pyright' })
-        if #clients > 0 then
-            pyright_running = true
-            break
-        end
-    end
+local clients = vim.lsp.get_clients({ name = 'pyright' })
+if #clients > 0 then
+    pyright_running = true
 end
 
 -- Pyright 설정 (중복 실행 방지)
 if not pyright_running then
+    -- nvim-lspconfig 사용 (deprecated warning 무시)
     local lspconfig = safe_require('lspconfig')
     if lspconfig then
         lspconfig.pyright.setup({
@@ -1538,8 +1531,9 @@ vim.api.nvim_set_hl(0, 'DiagnosticUnnecessary', { fg = '#665c54', italic = true 
 -- =================================
 -- Coverage 설정
 -- =================================
-local coverage = safe_require('coverage')
-if coverage then
+-- nvim-coverage 설정 (플러그인이 설치되어 있을 때만)
+local coverage_ok, coverage = pcall(require, 'coverage')
+if coverage_ok and coverage then
     coverage.setup({
         commands = true, -- create commands
         highlights = {
