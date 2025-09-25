@@ -12,6 +12,13 @@ set fileencodings=utf-8,euc-kr,cp949
 set langmenu=ko_KR.UTF-8
 set background=dark " or light if you want light mode
 
+" split/vsplit 창마다 cursorline 활성화
+augroup CursorLineOnlyInActiveWindow
+  autocmd!
+  autocmd VimEnter,WinEnter,BufWinEnter * setlocal cursorline
+  autocmd WinLeave * setlocal nocursorline
+augroup END
+
 " 기본 탭 설정 (4 spaces)
 set tabstop=4
 set shiftwidth=4
@@ -81,6 +88,8 @@ Plug 'hrsh7th/cmp-path'
 " Python
 " Type Hints
 Plug 'nvimtools/none-ls.nvim'
+" Python Coverage
+Plug 'andythigpen/nvim-coverage'
 
 " github
 Plug 'kdheepak/lazygit.nvim'
@@ -340,7 +349,7 @@ if not pyright_running then
                         diagnosticMode = "openFilesOnly",
                         reportMissingImports = true,
                         reportUnusedImport = false,
-                        reportUnusedVariable = false,  -- 너무 많은 경고 방지
+                        reportUnusedVariable = true,   -- 사용되지 않는 변수 표시
                         reportUndefinedVariable = true,
                     }
                 }
@@ -355,6 +364,16 @@ if not pyright_running then
                         end
                     end
                 end, 100)
+                
+                -- Insert mode에서 실시간 진단 업데이트
+                vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI", "InsertLeave" }, {
+                    buffer = bufnr,
+                    callback = function()
+                        vim.defer_fn(function()
+                            vim.diagnostic.show(nil, bufnr)
+                        end, 100)
+                    end,
+                })
             
                 -- 인레이 힌트 설정
                 if client.server_capabilities.inlayHintProvider then
@@ -426,11 +445,13 @@ if lint then
         lint.linters.flake8.cmd = flake8_path
     end
     
-    -- 실시간 린팅 설정 (빈도 줄임)
-    vim.api.nvim_create_autocmd({ "BufWritePost" }, {
+    -- 실시간 린팅 설정 (Insert mode 포함)
+    vim.api.nvim_create_autocmd({ "BufWritePost", "BufEnter", "InsertLeave", "TextChanged" }, {
         pattern = "*.py",
         callback = function()
-            lint.try_lint()
+            vim.defer_fn(function()
+                lint.try_lint()
+            end, 500) -- 500ms 지연으로 너무 빈번한 실행 방지
         end,
     })
 end
@@ -1478,6 +1499,68 @@ vim.api.nvim_set_hl(0, 'FoldColumn', {
 
 
 
+-- LSP 진단 설정 개선
+vim.diagnostic.config({
+    update_in_insert = true,  -- Insert mode에서도 진단 업데이트
+    severity_sort = true,
+    float = {
+        focusable = false,
+        close_events = { "BufLeave", "CursorMoved", "InsertEnter", "FocusLost" },
+        border = 'rounded',
+        source = 'always',
+        prefix = ' ',
+    },
+    virtual_text = {
+        spacing = 4,
+        source = "if_many",
+        prefix = "●",
+    },
+    signs = true,
+    underline = true,
+})
+
+-- 진단 하이라이트 색상 설정
+vim.api.nvim_set_hl(0, 'DiagnosticUnnecessary', { fg = '#665c54', italic = true })  -- 사용되지 않는 변수용 회색
+
+-- =================================
+-- Coverage 설정
+-- =================================
+local coverage = safe_require('coverage')
+if coverage then
+    coverage.setup({
+        commands = true, -- create commands
+        highlights = {
+            -- customize highlight groups created by the plugin
+            covered = { fg = "#98C379" },      -- covered lines (green)
+            uncovered = { fg = "#E06C75" },    -- uncovered lines (red)  
+            partial = { fg = "#E5C07B" },      -- partially covered lines (yellow)
+        },
+        signs = {
+            -- use your own highlight groups or text markers
+            covered = { hl = "CoverageCovered", text = "▎" },
+            uncovered = { hl = "CoverageUncovered", text = "▎" },
+            partial = { hl = "CoveragePartial", text = "▎" },
+        },
+        summary = {
+            -- customize the summary pop-up
+            min_coverage = 80.0, -- minimum coverage threshold (used for highlighting)
+        },
+        lang = {
+            -- configure language specific settings
+            python = {
+                -- Can specify a different coverage command or 'lcov' for a lcov file
+                coverage_command = "coverage json --fail-under=0 -q -o -",
+                coverage_file = ".coverage", -- coverage data file path
+            },
+        },
+    })
+    
+    -- Coverage 하이라이트 그룹 설정
+    vim.api.nvim_set_hl(0, 'CoverageCovered', { fg = '#98C379', bold = true })    -- 커버된 라인 (초록색)
+    vim.api.nvim_set_hl(0, 'CoverageUncovered', { fg = '#E06C75', bold = true })  -- 커버되지 않은 라인 (빨간색)
+    vim.api.nvim_set_hl(0, 'CoveragePartial', { fg = '#E5C07B', bold = true })    -- 부분 커버 (노란색)
+end
+
 EOF
 
 " =================================
@@ -1634,6 +1717,15 @@ nnoremap <leader>gu :Gitsigns undo_stage_hunk<CR>
 " Python 가상환경 키맵
 nnoremap <leader>ve :lua require('swenv.api').pick_venv()<CR>
 nnoremap <leader>vc :lua print(require('swenv.api').get_current_venv())<CR>
+
+" Coverage 키맵
+nnoremap <leader>cc :Coverage<CR>
+nnoremap <leader>cs :CoverageShow<CR>
+nnoremap <leader>ch :CoverageHide<CR>
+nnoremap <leader>ct :CoverageToggle<CR>
+nnoremap <leader>cr :CoverageLoad<CR>
+nnoremap <leader>cu :CoverageSummary<CR>
+nnoremap <F6> :CoverageToggle<CR>
 
 " 심볼 아웃라인 키맵
 nnoremap <leader>so :SymbolsOutline<CR>
