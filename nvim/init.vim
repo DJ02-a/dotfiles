@@ -310,7 +310,20 @@ require('lualine').setup {
     lualine_z = {}
   },
   tabline = {},
-  winbar = {},
+  winbar = {
+    lualine_c = {
+      {
+        function()
+          local navic = require('nvim-navic')
+          if navic.is_available() then
+            return navic.get_location()
+          end
+          return ""
+        end,
+        color = { fg = '#FE8019' },  -- 주황색으로 강조
+      }
+    }
+  },
   inactive_winbar = {},
   extensions = {}
 }
@@ -322,11 +335,46 @@ if #clients > 0 then
     pyright_running = true
 end
 
+-- 가상환경 감지 함수
+local function get_python_venv_paths()
+    local paths = {}
+    local python_path = vim.fn.exepath('python')
+    
+    -- VIRTUAL_ENV 환경변수 확인
+    local venv_path = vim.fn.getenv('VIRTUAL_ENV')
+    if venv_path ~= vim.NIL and venv_path ~= '' then
+        table.insert(paths, venv_path .. '/lib/python*/site-packages')
+        return paths, venv_path
+    end
+    
+    -- CONDA_PREFIX 환경변수 확인 (conda 환경)
+    local conda_path = vim.fn.getenv('CONDA_PREFIX')
+    if conda_path ~= vim.NIL and conda_path ~= '' then
+        table.insert(paths, conda_path .. '/lib/python*/site-packages')
+        return paths, conda_path
+    end
+    
+    -- pyenv 환경 확인
+    if python_path:match('/.pyenv/') then
+        local pyenv_version = vim.fn.system('pyenv version-name 2>/dev/null'):gsub('\n', '')
+        if pyenv_version and pyenv_version ~= '' then
+            local pyenv_root = vim.fn.getenv('PYENV_ROOT') or (vim.fn.getenv('HOME') .. '/.pyenv')
+            local site_packages = pyenv_root .. '/versions/' .. pyenv_version .. '/lib/python*/site-packages'
+            table.insert(paths, site_packages)
+            return paths, pyenv_root .. '/versions/' .. pyenv_version
+        end
+    end
+    
+    return paths, nil
+end
+
 -- Pyright 설정 (중복 실행 방지)
 if not pyright_running then
     -- nvim-lspconfig 사용 (deprecated warning 무시)
     local lspconfig = safe_require('lspconfig')
     if lspconfig then
+        local extra_paths, venv_path = get_python_venv_paths()
+        
         lspconfig.pyright.setup({
             cmd = { "pyright-langserver", "--stdio" },
             filetypes = { "python" },
@@ -334,6 +382,7 @@ if not pyright_running then
             settings = {
                 python = {
                     pythonPath = vim.fn.exepath('python'),
+                    venvPath = venv_path,
                     analysis = {
                         typeCheckingMode = "basic",  -- strict에서 basic으로 변경
                         autoImportCompletions = true,
@@ -344,6 +393,7 @@ if not pyright_running then
                         reportUnusedImport = false,
                         reportUnusedVariable = true,   -- 사용되지 않는 변수 표시
                         reportUndefinedVariable = true,
+                        extraPaths = extra_paths,
                     }
                 }
             },
@@ -804,6 +854,10 @@ if illuminate then
             return true
         end,
         case_insensitive_regex = false,
+        modes_denylist = {},  -- 모든 모드에서 활성화
+        modes_allowlist = {},
+        providers_regex_syntax_denylist = {},
+        providers_regex_syntax_allowlist = {},
     })
     
     -- 키맵 설정
@@ -1432,11 +1486,24 @@ if ufo then
                 _G.hover_enhanced.code_winid = nil
                 _G.hover_enhanced.show_code = false
                 
-                -- Open or focus the file
+                -- Check if there are multiple windows (vsplit already exists)
+                local windows = vim.api.nvim_list_wins()
                 local current_file = vim.fn.expand('%:p')
-                if current_file ~= file_path then
-                    -- If it's a different file, open it
+                
+                if #windows > 1 then
+                    -- Multiple windows exist, move to the opposite window
+                    vim.cmd('wincmd w')  -- Switch to the other window
+                    
+                    -- Open the file in the opposite window
                     vim.cmd('edit ' .. vim.fn.fnameescape(file_path))
+                else
+                    -- Only one window, create vsplit
+                    if current_file ~= file_path then
+                        vim.cmd('vsplit ' .. vim.fn.fnameescape(file_path))
+                    else
+                        -- Same file, create vsplit and stay in new window
+                        vim.cmd('vsplit')
+                    end
                 end
                 
                 -- Go to the specific line
@@ -1585,13 +1652,34 @@ nnoremap gr <cmd>lua vim.lsp.buf.references()<CR>
 " 포맷팅
 nnoremap <leader>f <cmd>lua vim.lsp.buf.format()<CR>
 
-" Undo/Redo 키맵
+" Undo/Redo 키맵 (Ctrl+Z and Cmd+Z for macOS compatibility)
 nnoremap <C-z> u
 nnoremap <C-S-z> <C-r>
+nnoremap U <C-r>
 inoremap <C-z> <C-o>u
-inoremap <C-S-z> <C-o><C-r>
+inoremap <C-y> <C-o><C-r>
 vnoremap <C-z> u
 vnoremap <C-S-z> <C-r>
+
+" macOS Command key mappings (if terminal supports it)
+if has('mac')
+    nnoremap <D-z> u
+    nnoremap <D-S-z> <C-r>
+    inoremap <D-z> <C-o>u
+    inoremap <D-S-z> <C-o><C-r>
+    vnoremap <D-z> u
+    vnoremap <D-S-z> <C-r>
+endif
+
+" Alternative undo mappings for terminals that don't support Cmd key
+" Meta key alternatives (Alt/Option + z)
+nnoremap <M-z> u
+inoremap <M-z> <C-o>u
+vnoremap <M-z> u
+
+" Additional failsafe mappings
+inoremap <A-z> <C-o>u
+nnoremap <A-z> u
 
 " Undo Tree
 nnoremap <leader>u :UndotreeToggle<CR>
@@ -1644,6 +1732,12 @@ set undofile
 set undodir=~/.config/nvim/undo
 set undolevels=1000
 set undoreload=10000
+
+" Terminal key sequence timeout settings for better key recognition
+set timeout
+set timeoutlen=1000
+set ttimeout
+set ttimeoutlen=10
 
 " undo 디렉토리 생성
 if !isdirectory(&undodir)
@@ -1768,3 +1862,11 @@ nnoremap <leader>7 <Cmd>BufferGoto 7<CR>
 nnoremap <leader>8 <Cmd>BufferGoto 8<CR>
 nnoremap <leader>9 <Cmd>BufferGoto 9<CR>
 nnoremap <leader>0 <Cmd>BufferGoto 10<CR>
+
+" Option+Shift+방향키로 줄 이동 (macOS)
+nnoremap <A-S-k> :m .-2<CR>==
+nnoremap <A-S-j> :m .+1<CR>==
+vnoremap <A-S-k> :m '<-2<CR>gv=gv
+vnoremap <A-S-j> :m '>+1<CR>gv=gv
+inoremap <A-S-k> <Esc>:m .-2<CR>==gi
+inoremap <A-S-j> <Esc>:m .+1<CR>==gi
