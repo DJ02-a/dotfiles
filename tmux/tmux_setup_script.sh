@@ -146,18 +146,26 @@ kill_tmux_sessions() {
 # 플러그인 설치
 install_plugins() {
     print_status "tmux 플러그인 설치 중..."
-    
-    # 백그라운드에서 tmux 서버 시작
+
+    # tmux 서버 시작하고 설정 로드
+    tmux start-server
+    sleep 1
+
+    # 설정 파일 로드
+    tmux source-file "$HOME/.tmux.conf"
+    sleep 1
+
+    # 백그라운드에서 tmux 세션 시작
     tmux new-session -d -s temp_session 2>/dev/null || true
     sleep 2
-    
-    # 플러그인 설치 스크립트 실행
-    "$HOME/.tmux/plugins/tpm/scripts/install_plugins.sh"
-    
+
+    # 플러그인 설치 스크립트 실행 (일부 플러그인 실패는 무시)
+    "$HOME/.tmux/plugins/tpm/scripts/install_plugins.sh" || true
+
     # 임시 세션 종료
     tmux kill-session -t temp_session 2>/dev/null || true
-    
-    print_success "플러그인 설치 완료"
+
+    print_success "플러그인 설치 완료 (일부 플러그인이 실패했을 수 있습니다)"
 }
 
 # 설정 테스트
