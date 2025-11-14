@@ -42,10 +42,45 @@ check_tmux_conf() {
 check_tmux_installed() {
     if ! command -v tmux &> /dev/null; then
         print_warning "tmux가 설치되지 않았습니다. 설치를 진행합니다..."
-        if command -v brew &> /dev/null; then
-            brew install tmux
+
+        # OS 감지 및 패키지 매니저별 설치
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            # macOS
+            if command -v brew &> /dev/null; then
+                brew install tmux
+            else
+                print_error "Homebrew가 설치되지 않았습니다. 먼저 Homebrew를 설치해주세요."
+                exit 1
+            fi
+        elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+            # Linux
+            if command -v apt-get &> /dev/null; then
+                # Debian/Ubuntu
+                print_status "apt-get을 사용하여 tmux를 설치합니다..."
+                sudo apt-get update && sudo apt-get install -y tmux
+            elif command -v yum &> /dev/null; then
+                # CentOS/RHEL
+                print_status "yum을 사용하여 tmux를 설치합니다..."
+                sudo yum install -y tmux
+            elif command -v dnf &> /dev/null; then
+                # Fedora
+                print_status "dnf를 사용하여 tmux를 설치합니다..."
+                sudo dnf install -y tmux
+            elif command -v pacman &> /dev/null; then
+                # Arch Linux
+                print_status "pacman을 사용하여 tmux를 설치합니다..."
+                sudo pacman -S --noconfirm tmux
+            elif command -v zypper &> /dev/null; then
+                # openSUSE
+                print_status "zypper를 사용하여 tmux를 설치합니다..."
+                sudo zypper install -y tmux
+            else
+                print_error "지원되는 패키지 매니저를 찾을 수 없습니다."
+                print_error "수동으로 tmux를 설치해주세요: https://github.com/tmux/tmux/wiki"
+                exit 1
+            fi
         else
-            print_error "Homebrew가 설치되지 않았습니다. 수동으로 tmux를 설치해주세요."
+            print_error "지원되지 않는 OS입니다: $OSTYPE"
             exit 1
         fi
     fi
@@ -80,7 +115,13 @@ create_symlink() {
 # TPM 설치
 install_tpm() {
     local tpm_dir="$HOME/.tmux/plugins/tpm"
-    
+
+    # Git 설치 확인
+    if ! command -v git &> /dev/null; then
+        print_error "Git이 설치되지 않았습니다. TPM 설치를 위해 Git이 필요합니다."
+        exit 1
+    fi
+
     if [ -d "$tpm_dir" ]; then
         print_warning "TPM이 이미 설치되어 있습니다. 업데이트를 진행합니다..."
         cd "$tpm_dir"
