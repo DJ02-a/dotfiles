@@ -42,12 +42,44 @@ if [[ "$OS" == "Darwin" ]]; then
 elif [[ "$OS" == "Linux" ]]; then
   echo "🐧 Linux 환경입니다."
 
-  echo "⬇️ Neovim AppImage 다운로드 중..."
-  curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim.appimage
-  chmod u+x nvim.appimage
+  # 패키지 매니저별 설치
+  if command -v apt-get &>/dev/null; then
+    # Debian/Ubuntu
+    echo "⬇️ apt-get으로 Neovim 설치 중..."
+    sudo apt-get update
+    sudo apt-get install -y neovim
 
-  echo "🛠️ /usr/local/bin/nvim 으로 이동 (sudo 필요)"
-  sudo mv nvim.appimage /usr/local/bin/nvim
+  elif command -v dnf &>/dev/null; then
+    # Fedora
+    echo "⬇️ dnf로 Neovim 설치 중..."
+    sudo dnf install -y neovim
+
+  elif command -v yum &>/dev/null; then
+    # CentOS/RHEL
+    echo "⬇️ yum으로 Neovim 설치 중..."
+    sudo yum install -y epel-release
+    sudo yum install -y neovim
+
+  elif command -v pacman &>/dev/null; then
+    # Arch Linux
+    echo "⬇️ pacman으로 Neovim 설치 중..."
+    sudo pacman -S --noconfirm neovim
+
+  elif command -v zypper &>/dev/null; then
+    # openSUSE
+    echo "⬇️ zypper로 Neovim 설치 중..."
+    sudo zypper install -y neovim
+
+  else
+    # 패키지 매니저가 없으면 AppImage 사용
+    echo "⚠️  패키지 매니저를 찾을 수 없습니다. AppImage로 설치합니다..."
+    echo "⬇️ Neovim AppImage 다운로드 중..."
+    curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim.appimage
+    chmod u+x nvim.appimage
+
+    echo "🛠️ /usr/local/bin/nvim 으로 이동 (sudo 필요)"
+    sudo mv nvim.appimage /usr/local/bin/nvim
+  fi
 
 else
   echo "❌ 지원하지 않는 운영체제입니다: $OS"

@@ -1652,7 +1652,7 @@ nnoremap gr <cmd>lua vim.lsp.buf.references()<CR>
 " 포맷팅
 nnoremap <leader>f <cmd>lua vim.lsp.buf.format()<CR>
 
-" Undo/Redo 키맵 (Ctrl+Z and Cmd+Z for macOS compatibility)
+" Undo/Redo 키맵 (크로스 플랫폼: Ctrl+Z)
 nnoremap <C-z> u
 nnoremap <C-S-z> <C-r>
 nnoremap U <C-r>
@@ -1661,7 +1661,7 @@ inoremap <C-y> <C-o><C-r>
 vnoremap <C-z> u
 vnoremap <C-S-z> <C-r>
 
-" macOS Command key mappings (if terminal supports it)
+" macOS 추가 매핑: Command 키 (터미널이 지원하는 경우)
 if has('mac')
     nnoremap <D-z> u
     nnoremap <D-S-z> <C-r>
@@ -1748,7 +1748,7 @@ endif
 " 파일/버퍼 이동 키맵
 " =================================
 
-" Option+Tab으로 버퍼 간 이동 (macOS)
+" Alt+Tab으로 버퍼 간 이동 (크로스 플랫폼: macOS Option, Linux Alt)
 nnoremap <A-Tab> :bnext<CR>
 nnoremap <A-S-Tab> :bprev<CR>
 
@@ -1863,7 +1863,7 @@ nnoremap <leader>8 <Cmd>BufferGoto 8<CR>
 nnoremap <leader>9 <Cmd>BufferGoto 9<CR>
 nnoremap <leader>0 <Cmd>BufferGoto 10<CR>
 
-" Option+Shift+방향키로 줄 이동 (macOS)
+" Alt+Shift+방향키로 줄 이동 (크로스 플랫폼: macOS Option, Linux Alt)
 nnoremap <A-S-k> :m .-2<CR>==
 nnoremap <A-S-j> :m .+1<CR>==
 vnoremap <A-S-k> :m '<-2<CR>gv=gv
