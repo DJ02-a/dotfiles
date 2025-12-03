@@ -26,7 +26,21 @@ function mstatus() {
     
     if [[ $sync_count -gt 0 ]]; then
         echo "🔄 Sync Sessions:"
-        mutagen sync list 2>/dev/null | grep -E "(Name:|Status:)" | sed 's/^/  /'
+        
+        # 세션 정보를 더 읽기 좋게 표시
+        local sessions_info=$(mutagen sync list 2>/dev/null)
+        echo "$sessions_info" | while IFS= read -r line; do
+            if [[ "$line" =~ ^Name:\ (.+)$ ]]; then
+                echo "  📂 ${match[1]}"
+            elif [[ "$line" =~ ^Status:\ (.+)$ ]]; then
+                echo "     📊 Status: ${match[1]}"
+            elif [[ "$line" =~ ^[[:space:]]*URL:\ (.+)$ ]]; then
+                local url="${match[1]}"
+                if [[ "$url" =~ : ]]; then
+                    echo "     🌐 Remote: $url"
+                fi
+            fi
+        done
     else
         echo "💡 No active sync sessions found"
     fi
@@ -68,6 +82,36 @@ parse_ssh_config() {
 function msync() {
     echo "🔄 Mutagen SSH 동기화 설정:"
     echo "----------------------------------------"
+    
+    # 기존 mutagen.yml이 있는지 확인
+    local existing_config=false
+    local existing_remote_path=""
+    if [[ -f "mutagen.yml" ]]; then
+        existing_config=true
+        echo "⚠️  기존 mutagen.yml 파일을 발견했습니다."
+        
+        # 기존 원격 경로 추출
+        existing_remote_path=$(grep -E "beta:" mutagen.yml | head -1 | sed 's/.*://' | sed 's/^[[:space:]]*//' | sed 's/"//g' | sed "s/'//g")
+        if [[ "$existing_remote_path" =~ ^[^:]+:(.+)$ ]]; then
+            existing_remote_path="${match[1]}"
+        fi
+        echo "기존 원격 경로: $existing_remote_path"
+        echo ""
+        echo "1) 서버와 경로만 수정 (기존 설정 유지)"
+        echo "2) 완전히 새로 생성 (기존 파일 덮어쓰기)"
+        echo -n "선택하세요 (1/2): "
+        read update_choice
+        
+        if [[ "$update_choice" != "1" && "$update_choice" != "2" ]]; then
+            echo "❌ 잘못된 선택입니다."
+            return 1
+        fi
+        
+        if [[ "$update_choice" == "2" ]]; then
+            existing_config=false
+        fi
+        echo "----------------------------------------"
+    fi
     
     local hosts=$(parse_ssh_config)
     if [[ -z "$hosts" ]]; then
@@ -120,9 +164,31 @@ function msync() {
     
     echo "선택된 서버: $host ($user@$hostname:$port)"
     
-    # 원격 경로 입력
-    echo -n "원격 서버의 동기화할 경로를 입력하세요: "
-    read remote_path
+    # 원격 경로 입력 (기존 설정이 있는 경우 옵션 제공)
+    local remote_path=""
+    if [[ "$existing_config" == "true" && -n "$existing_remote_path" ]]; then
+        echo ""
+        echo "원격 경로 설정:"
+        echo "1) 기존 경로 사용: $existing_remote_path"
+        echo "2) 새로운 경로 입력"
+        echo -n "선택하세요 (1/2): "
+        read path_choice
+        
+        if [[ "$path_choice" == "1" ]]; then
+            remote_path="$existing_remote_path"
+            echo "✅ 기존 경로를 사용합니다: $remote_path"
+        elif [[ "$path_choice" == "2" ]]; then
+            echo -n "새로운 원격 경로를 입력하세요: "
+            read remote_path
+        else
+            echo "❌ 잘못된 선택입니다."
+            return 1
+        fi
+    else
+        echo -n "원격 서버의 동기화할 경로를 입력하세요: "
+        read remote_path
+    fi
+    
     if [[ -z "$remote_path" ]]; then
         echo "❌ 원격 경로는 필수입니다."
         return 1
@@ -134,17 +200,36 @@ function msync() {
     echo "로컬 경로: $local_path"
     echo "프로젝트명: $project_name"
     
-    # mutagen.yml 파일 생성
+    # mutagen.yml 파일 생성 또는 업데이트
     local mutagen_config="mutagen.yml"
     
-    cat > "$mutagen_config" << EOF
+    if [[ "$existing_config" == "true" ]]; then
+        # 기존 파일에서 서버와 경로만 업데이트
+        echo "🔄 기존 설정을 유지하면서 서버와 경로만 업데이트합니다..."
+        
+        # 백업 생성
+        cp "$mutagen_config" "${mutagen_config}.backup.$(date +%s)"
+        
+        # 세션 이름과 beta 경로만 업데이트
+        sed -i '' "s/  \[.*\] .*/  [${host}] ${project_name}:/" "$mutagen_config"
+        sed -i '' "s|    beta:.*|    beta: \"$host:$remote_path\"|" "$mutagen_config"
+        sed -i '' "s/  ssh:.*/  ssh: \"ssh $host\"/" "$mutagen_config"
+        sed -i '' "s/  logs:.*/  logs: \"mutagen sync monitor '[${host}] ${project_name}'\"/" "$mutagen_config"
+        sed -i '' "s/  status:.*/  status: \"mutagen sync list '[${host}] ${project_name}'\"/" "$mutagen_config"
+        sed -i '' "s/  flush:.*/  flush: \"mutagen sync flush '[${host}] ${project_name}'\"/" "$mutagen_config"
+        sed -i '' "s/  reset:.*/  reset: \"mutagen sync reset '[${host}] ${project_name}'\"/" "$mutagen_config"
+        
+        echo "✅ mutagen.yml 파일이 업데이트되었습니다."
+    else
+        # 새 파일 생성
+        cat > "$mutagen_config" << EOF
 # Mutagen SSH 동기화 설정 for $project_name
 # Generated on $(date)
 # Server: $host ($user@$hostname:$port)
 
 sync:
   defaults:
-    mode: "two-way-resolved"
+    mode: "one-way-replica"
     ignore:
       vcs: true
       paths:
@@ -198,24 +283,29 @@ sync:
         - "*.temp"
 
   # SSH 동기화 세션
-  ${host}-sync:
+  [${host}] ${project_name}:
     alpha: "."
     beta: "$host:$remote_path"
     
-    # 첫 생성시 전체 동기화 강제 실행
+    # 로컬 기준 동기화 설정
+    mode: "one-way-replica"
     flushOnCreate: true
+    defaultOwner: "id:$(id -u)"
+    defaultGroup: "id:$(id -g)"
+    defaultFileMode: 0644
+    defaultDirectoryMode: 0755
 
 # 커스텀 명령어
 commands:
   ssh: "ssh $host"
-  logs: "mutagen sync monitor ${host}-sync"
-  status: "mutagen sync list ${host}-sync"
-  flush: "mutagen sync flush ${host}-sync"
-  reset: "mutagen sync reset ${host}-sync"
+  logs: "mutagen sync monitor '[${host}] ${project_name}'"
+  status: "mutagen sync list '[${host}] ${project_name}'"
+  flush: "mutagen sync flush '[${host}] ${project_name}'"
+  reset: "mutagen sync reset '[${host}] ${project_name}'"
 
 EOF
-    
-    echo "✅ mutagen.yml 파일이 생성되었습니다."
+        echo "✅ mutagen.yml 파일이 생성되었습니다."
+    fi
     echo ""
     echo "🔄 Mutagen 동기화를 시작하려면:"
     echo "  mstart"
@@ -353,8 +443,12 @@ function mpause() {
     # 세션 이름이 지정되지 않은 경우 자동 감지
     if [[ -z "$session_name" ]]; then
         if [[ -f "mutagen.yml" ]]; then
-            # mutagen.yml에서 첫 번째 세션 이름 추출
-            session_name=$(grep -E "^  [^#].*-sync:" mutagen.yml | head -1 | sed 's/:$//' | sed 's/^  //')
+            # mutagen.yml에서 첫 번째 세션 이름 추출 (새 형식 지원)
+            session_name=$(grep -E "^  \[.*\] .*:" mutagen.yml | head -1 | sed 's/:$//' | sed 's/^  //')
+            if [[ -z "$session_name" ]]; then
+                # 구 형식도 지원
+                session_name=$(grep -E "^  [^#].*-sync:" mutagen.yml | head -1 | sed 's/:$//' | sed 's/^  //')
+            fi
             if [[ -z "$session_name" ]]; then
                 # 기본 세션 이름들 시도
                 local default_sessions=("main" "default")
@@ -424,8 +518,12 @@ function mresume() {
     # 세션 이름이 지정되지 않은 경우 자동 감지
     if [[ -z "$session_name" ]]; then
         if [[ -f "mutagen.yml" ]]; then
-            # mutagen.yml에서 첫 번째 세션 이름 추출
-            session_name=$(grep -E "^  [^#].*-sync:" mutagen.yml | head -1 | sed 's/:$//' | sed 's/^  //')
+            # mutagen.yml에서 첫 번째 세션 이름 추출 (새 형식 지원)
+            session_name=$(grep -E "^  \[.*\] .*:" mutagen.yml | head -1 | sed 's/:$//' | sed 's/^  //')
+            if [[ -z "$session_name" ]]; then
+                # 구 형식도 지원
+                session_name=$(grep -E "^  [^#].*-sync:" mutagen.yml | head -1 | sed 's/:$//' | sed 's/^  //')
+            fi
             if [[ -z "$session_name" ]]; then
                 # 기본 세션 이름들 시도
                 local default_sessions=("main" "default")
@@ -494,8 +592,12 @@ function mlogs() {
     # 세션 이름이 지정되지 않은 경우 자동 감지
     if [[ -z "$session_name" ]]; then
         if [[ -f "mutagen.yml" ]]; then
-            # mutagen.yml에서 첫 번째 세션 이름 추출
-            session_name=$(grep -E "^  [^#].*-sync:" mutagen.yml | head -1 | sed 's/:$//' | sed 's/^  //')
+            # mutagen.yml에서 첫 번째 세션 이름 추출 (새 형식 지원)
+            session_name=$(grep -E "^  \[.*\] .*:" mutagen.yml | head -1 | sed 's/:$//' | sed 's/^  //')
+            if [[ -z "$session_name" ]]; then
+                # 구 형식도 지원
+                session_name=$(grep -E "^  [^#].*-sync:" mutagen.yml | head -1 | sed 's/:$//' | sed 's/^  //')
+            fi
             if [[ -z "$session_name" ]]; then
                 echo "❌ No session found in mutagen.yml"
                 return 1
@@ -597,17 +699,26 @@ function mcheck() {
             # 임시 파일을 사용하여 while 루프 문제 해결
             echo "$sessions" > /tmp/mutagen_sessions_$
             
+            local current_session=""
+            local in_beta_section=false
+            
             while IFS= read -r line; do
                 if [[ "$line" =~ ^Name:\ (.+)$ ]]; then
-                    echo "  📂 Session: ${match[1]}"
+                    current_session="${match[1]}"
+                    echo "  📂 $current_session"
+                    in_beta_section=false
                 elif [[ "$line" =~ ^Alpha:$ ]]; then
                     echo "     📍 Local (Source):"
+                    in_beta_section=false
                 elif [[ "$line" =~ ^Beta:$ ]]; then
                     echo "     🌐 Remote (Target):"
+                    in_beta_section=true
                 elif [[ "$line" =~ ^[[:space:]]*URL:\ (.+)$ ]]; then
                     local url="${match[1]}"
-                    if [[ "$url" =~ ^/ ]]; then
-                        echo "       📁 $(basename "$url")"
+                    if [[ "$in_beta_section" == "true" ]]; then
+                        echo "       🖥️  $url"
+                    elif [[ "$url" =~ ^/ ]]; then
+                        echo "       📁 $(basename "$url") ($(dirname "$url"))"
                     else
                         echo "       🖥️  $url"
                     fi
@@ -622,6 +733,7 @@ function mcheck() {
                     local sync_state="${match[1]}"
                     echo "     📊 Status: $sync_state"
                     echo ""
+                    in_beta_section=false
                 fi
             done < /tmp/mutagen_sessions_$
             
@@ -725,6 +837,7 @@ function mhelp() {
     echo "📚 Help:"
     echo "  mtemplate - Show configuration templates"
     echo "  mhelp     - Show this help"
+    echo "  mclean    - Clean up and remove sessions"
     echo ""
     echo "💡 SSH Setup (recommended):"
     echo "  1. Configure ~/.ssh/config with your servers"
@@ -755,6 +868,164 @@ if [[ -n ${ZSH_VERSION-} ]]; then
     # 자동완성 등록
     compdef _mutagen_sessions mlogs mrestart mpause mresume
 fi
+
+# Mutagen 세션 정리 함수
+function mclean() {
+    echo "🧹 Mutagen 세션 정리:"
+    echo "----------------------------------------"
+    
+    # 현재 세션 목록 가져오기
+    local sync_sessions=$(mutagen sync list 2>/dev/null)
+    local forward_sessions=$(mutagen forward list 2>/dev/null)
+    
+    if [[ -z "$sync_sessions" && -z "$forward_sessions" ]]; then
+        echo "❌ 활성 세션이 없습니다."
+        return 0
+    fi
+    
+    echo "현재 활성 세션 목록:"
+    echo ""
+    
+    # 세션 정보를 배열에 저장
+    local -a session_list
+    local -a session_types
+    local -a remote_paths
+    local session_count=0
+    
+    # Sync 세션 처리
+    if [[ -n "$sync_sessions" ]]; then
+        echo "🔄 Sync 세션:"
+        
+        # 임시 파일에 세션 정보 저장
+        echo "$sync_sessions" > /tmp/mutagen_sessions_$$
+        
+        local current_session=""
+        local current_remote=""
+        
+        while IFS= read -r line; do
+            if [[ "$line" =~ ^Name:\ (.+)$ ]]; then
+                current_session="${match[1]}"
+            elif [[ "$line" =~ ^[[:space:]]*URL:\ (.+)$ ]] && [[ -n "$current_session" ]]; then
+                local url="${match[1]}"
+                # Beta URL인지 확인 (원격 경로)
+                if [[ "$url" =~ : ]]; then
+                    current_remote="$url"
+                    ((session_count++))
+                    session_list[$session_count]="$current_session"
+                    session_types[$session_count]="sync"
+                    remote_paths[$session_count]="$current_remote"
+                    echo "  $session_count) $current_session"
+                    echo "     📍 Remote: $current_remote"
+                    current_session=""
+                    current_remote=""
+                fi
+            fi
+        done < /tmp/mutagen_sessions_$$
+        
+        rm -f /tmp/mutagen_sessions_$$
+    fi
+    
+    # Forward 세션 처리
+    if [[ -n "$forward_sessions" ]]; then
+        if [[ $session_count -gt 0 ]]; then
+            echo ""
+        fi
+        echo "🔀 Forward 세션:"
+        
+        echo "$forward_sessions" | while IFS= read -r line; do
+            if [[ "$line" =~ ^Name:\ (.+)$ ]]; then
+                ((session_count++))
+                session_list[$session_count]="${match[1]}"
+                session_types[$session_count]="forward"
+                echo "  $session_count) ${match[1]}"
+            fi
+        done
+        
+        # Forward 세션 정보를 메인 세션 배열에 추가
+        local temp_count=$session_count
+        echo "$forward_sessions" | while IFS= read -r line; do
+            if [[ "$line" =~ ^Name:\ (.+)$ ]]; then
+                ((temp_count++))
+                session_list[$temp_count]="${match[1]}"
+                session_types[$temp_count]="forward"
+            fi
+        done
+        session_count=$temp_count
+    fi
+    
+    echo ""
+    echo "----------------------------------------"
+    
+    if [[ $session_count -eq 0 ]]; then
+        echo "❌ 삭제할 세션이 없습니다."
+        return 0
+    fi
+    
+    echo "삭제할 세션 번호를 입력하세요 (여러 개는 쉼표로 구분, 예: 1,3,5)"
+    echo "또는 'all'을 입력하여 모든 세션 삭제"
+    echo -n "선택: "
+    read selection
+    
+    if [[ -z "$selection" ]]; then
+        echo "❌ 선택이 취소되었습니다."
+        return 0
+    fi
+    
+    if [[ "$selection" == "all" ]]; then
+        echo "⚠️  모든 세션을 삭제하시겠습니까? (y/N): "
+        read confirm
+        if [[ "$confirm" =~ ^[Yy]$ ]]; then
+            echo "🗑️  모든 세션을 삭제하는 중..."
+            mutagen sync terminate --all 2>/dev/null
+            mutagen forward terminate --all 2>/dev/null
+            echo "✅ 모든 세션이 삭제되었습니다."
+        else
+            echo "❌ 삭제가 취소되었습니다."
+        fi
+        return 0
+    fi
+    
+    # 선택된 번호들 처리
+    IFS=',' read -ra selected_numbers <<< "$selection"
+    local deleted_count=0
+    
+    for num in "${selected_numbers[@]}"; do
+        # 공백 제거
+        num=$(echo "$num" | tr -d '[:space:]')
+        
+        # 숫자 유효성 검사
+        if [[ ! "$num" =~ ^[0-9]+$ ]] || [[ $num -lt 1 ]] || [[ $num -gt $session_count ]]; then
+            echo "⚠️  잘못된 번호입니다: $num"
+            continue
+        fi
+        
+        local session_name="${session_list[$num]}"
+        local session_type="${session_types[$num]}"
+        
+        echo "🗑️  삭제 중: $session_name ($session_type)"
+        
+        if [[ "$session_type" == "sync" ]]; then
+            mutagen sync terminate "$session_name"
+        else
+            mutagen forward terminate "$session_name"
+        fi
+        
+        if [[ $? -eq 0 ]]; then
+            echo "✅ 세션 삭제 완료: $session_name"
+            ((deleted_count++))
+        else
+            echo "❌ 세션 삭제 실패: $session_name"
+        fi
+    done
+    
+    echo ""
+    echo "📊 총 $deleted_count개 세션이 삭제되었습니다."
+    
+    # 남은 세션 표시
+    local remaining_sessions=$(mutagen sync list 2>/dev/null | grep -c "Name:" 2>/dev/null || echo "0")
+    local remaining_forwards=$(mutagen forward list 2>/dev/null | grep -c "Name:" 2>/dev/null || echo "0")
+    echo "📋 남은 세션: Sync $remaining_sessions개, Forward $remaining_forwards개"
+}
 
 # 별칭 설정 (선택사항)
 alias ms='mstatus'
