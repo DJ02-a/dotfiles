@@ -207,17 +207,15 @@ function msync() {
         # 기존 파일에서 서버와 경로만 업데이트
         echo "🔄 기존 설정을 유지하면서 서버와 경로만 업데이트합니다..."
         
-        # 백업 생성
-        cp "$mutagen_config" "${mutagen_config}.backup.$(date +%s)"
         
         # 세션 이름과 beta 경로만 업데이트
-        sed -i '' "s/  .*-.*:.*/  ${host}-${project_name}:/" "$mutagen_config"
+        sed -i '' "s/  \[.*\] .*/  [${host}] ${project_name}:/" "$mutagen_config"
         sed -i '' "s|    beta:.*|    beta: \"$host:$remote_path\"|" "$mutagen_config"
         sed -i '' "s/  ssh:.*/  ssh: \"ssh $host\"/" "$mutagen_config"
-        sed -i '' "s/  logs:.*/  logs: \"mutagen sync monitor ${host}-${project_name}\"/" "$mutagen_config"
-        sed -i '' "s/  status:.*/  status: \"mutagen sync list ${host}-${project_name}\"/" "$mutagen_config"
-        sed -i '' "s/  flush:.*/  flush: \"mutagen sync flush ${host}-${project_name}\"/" "$mutagen_config"
-        sed -i '' "s/  reset:.*/  reset: \"mutagen sync reset ${host}-${project_name}\"/" "$mutagen_config"
+        sed -i '' "s/  logs:.*/  logs: \"mutagen sync monitor '[${host}] ${project_name}'\"/" "$mutagen_config"
+        sed -i '' "s/  status:.*/  status: \"mutagen sync list '[${host}] ${project_name}'\"/" "$mutagen_config"
+        sed -i '' "s/  flush:.*/  flush: \"mutagen sync flush '[${host}] ${project_name}'\"/" "$mutagen_config"
+        sed -i '' "s/  reset:.*/  reset: \"mutagen sync reset '[${host}] ${project_name}'\"/" "$mutagen_config"
         
         echo "✅ mutagen.yml 파일이 업데이트되었습니다."
     else
@@ -229,7 +227,7 @@ function msync() {
 
 sync:
   defaults:
-    mode: "one-way-replica"
+    mode: "two-way-resolved"
     ignore:
       vcs: true
       paths:
@@ -283,20 +281,25 @@ sync:
         - "*.temp"
 
   # SSH 동기화 세션
-  ${host}-${project_name}:
+  [${host}] ${project_name}:
     alpha: "."
     beta: "$host:$remote_path"
-
-    # 첫 생성시 전체 동기화 강제 실행
+    
+    # 로컬 기준 동기화 설정
+    mode: "two-way-resolved"
     flushOnCreate: true
+    defaultOwner: "id:$(id -u)"
+    defaultGroup: "id:$(id -g)"
+    defaultFileMode: 0644
+    defaultDirectoryMode: 0755
 
 # 커스텀 명령어
 commands:
   ssh: "ssh $host"
-  logs: "mutagen sync monitor ${host}-${project_name}"
-  status: "mutagen sync list ${host}-${project_name}"
-  flush: "mutagen sync flush ${host}-${project_name}"
-  reset: "mutagen sync reset ${host}-${project_name}"
+  logs: "mutagen sync monitor '[${host}] ${project_name}'"
+  status: "mutagen sync list '[${host}] ${project_name}'"
+  flush: "mutagen sync flush '[${host}] ${project_name}'"
+  reset: "mutagen sync reset '[${host}] ${project_name}'"
 
 EOF
         echo "✅ mutagen.yml 파일이 생성되었습니다."
@@ -438,11 +441,11 @@ function mpause() {
     # 세션 이름이 지정되지 않은 경우 자동 감지
     if [[ -z "$session_name" ]]; then
         if [[ -f "mutagen.yml" ]]; then
-            # mutagen.yml에서 첫 번째 세션 이름 추출 (host-project 형식)
-            session_name=$(grep -E "^  [^#[:space:]].*:" mutagen.yml | head -1 | sed 's/:$//' | sed 's/^  //')
+            # mutagen.yml에서 첫 번째 세션 이름 추출 (새 형식 지원)
+            session_name=$(grep -E "^  \[.*\] .*:" mutagen.yml | head -1 | sed 's/:$//' | sed 's/^  //')
             if [[ -z "$session_name" ]]; then
-                # 기본 세션 이름도 시도
-                session_name=$(grep -E "^  main:" mutagen.yml | head -1 | sed 's/:$//' | sed 's/^  //')
+                # 구 형식도 지원
+                session_name=$(grep -E "^  [^#].*-sync:" mutagen.yml | head -1 | sed 's/:$//' | sed 's/^  //')
             fi
             if [[ -z "$session_name" ]]; then
                 # 기본 세션 이름들 시도
@@ -513,11 +516,11 @@ function mresume() {
     # 세션 이름이 지정되지 않은 경우 자동 감지
     if [[ -z "$session_name" ]]; then
         if [[ -f "mutagen.yml" ]]; then
-            # mutagen.yml에서 첫 번째 세션 이름 추출 (host-project 형식)
-            session_name=$(grep -E "^  [^#[:space:]].*:" mutagen.yml | head -1 | sed 's/:$//' | sed 's/^  //')
+            # mutagen.yml에서 첫 번째 세션 이름 추출 (새 형식 지원)
+            session_name=$(grep -E "^  \[.*\] .*:" mutagen.yml | head -1 | sed 's/:$//' | sed 's/^  //')
             if [[ -z "$session_name" ]]; then
-                # 기본 세션 이름도 시도
-                session_name=$(grep -E "^  main:" mutagen.yml | head -1 | sed 's/:$//' | sed 's/^  //')
+                # 구 형식도 지원
+                session_name=$(grep -E "^  [^#].*-sync:" mutagen.yml | head -1 | sed 's/:$//' | sed 's/^  //')
             fi
             if [[ -z "$session_name" ]]; then
                 # 기본 세션 이름들 시도
@@ -587,11 +590,11 @@ function mlogs() {
     # 세션 이름이 지정되지 않은 경우 자동 감지
     if [[ -z "$session_name" ]]; then
         if [[ -f "mutagen.yml" ]]; then
-            # mutagen.yml에서 첫 번째 세션 이름 추출 (host-project 형식)
-            session_name=$(grep -E "^  [^#[:space:]].*:" mutagen.yml | head -1 | sed 's/:$//' | sed 's/^  //')
+            # mutagen.yml에서 첫 번째 세션 이름 추출 (새 형식 지원)
+            session_name=$(grep -E "^  \[.*\] .*:" mutagen.yml | head -1 | sed 's/:$//' | sed 's/^  //')
             if [[ -z "$session_name" ]]; then
-                # 기본 세션 이름도 시도
-                session_name=$(grep -E "^  main:" mutagen.yml | head -1 | sed 's/:$//' | sed 's/^  //')
+                # 구 형식도 지원
+                session_name=$(grep -E "^  [^#].*-sync:" mutagen.yml | head -1 | sed 's/:$//' | sed 's/^  //')
             fi
             if [[ -z "$session_name" ]]; then
                 echo "❌ No session found in mutagen.yml"
