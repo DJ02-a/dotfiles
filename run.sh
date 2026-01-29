@@ -11,7 +11,7 @@ cd ..
 # ==============================================================================
 # 각 도구별 설치
 # ==============================================================================
-cd brew
+cd terminal-tools
 bash setting.bash
 cd ../zsh
 bash python_dev_install_script.sh
@@ -19,7 +19,7 @@ cd ../nvim
 bash nvim_install.sh
 cd ../tmux
 bash tmux_setup_script.sh
-cd ../container-toolsi
+cd ../container-tools
 bash install.sh
 cd ../claude
 bash install.sh
