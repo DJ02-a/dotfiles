@@ -271,7 +271,7 @@ function M.setup()
             local bufnr = arg.bufnr or vim.api.nvim_get_current_buf()
 
             -- Check if this is actually a neo-tree buffer
-            local filetype = vim.api.nvim_buf_get_option(bufnr, 'filetype')
+            local filetype = vim.bo[bufnr].filetype
             if filetype ~= 'neo-tree' then
               return
             end

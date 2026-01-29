@@ -1384,8 +1384,8 @@ if ufo then
         
         local bufnr = vim.api.nvim_create_buf(false, true)
         vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
-        vim.api.nvim_buf_set_option(bufnr, 'modifiable', false)
-        vim.api.nvim_buf_set_option(bufnr, 'filetype', 'markdown')
+        vim.bo[bufnr].modifiable = false
+        vim.bo[bufnr].filetype = 'markdown'
         
         -- Calculate width and height based on content
         local max_line_length = 0
@@ -1409,8 +1409,8 @@ if ufo then
         })
         
         -- Set window highlight and enable scrolling
-        vim.api.nvim_win_set_option(_G.hover_enhanced.info_winid, 'winhl', 'Normal:PmenuSel,FloatBorder:PmenuSel')
-        vim.api.nvim_win_set_option(_G.hover_enhanced.info_winid, 'wrap', true)
+        vim.wo[_G.hover_enhanced.info_winid].winhl = 'Normal:PmenuSel,FloatBorder:PmenuSel'
+        vim.wo[_G.hover_enhanced.info_winid].wrap = true
         
         -- Set up keymaps for the info window
         vim.keymap.set('n', 'q', function()
@@ -1477,8 +1477,8 @@ if ufo then
             -- Create buffer and show code window
             local bufnr = vim.api.nvim_create_buf(false, true)
             vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, display_lines)
-            vim.api.nvim_buf_set_option(bufnr, 'modifiable', false)
-            vim.api.nvim_buf_set_option(bufnr, 'filetype', filetype)
+            vim.bo[bufnr].modifiable = false
+            vim.bo[bufnr].filetype = filetype
             
             local width = math.min(120, vim.o.columns - 10)
             local height = math.min(30, math.max(15, math.min(#display_lines + 2, vim.o.lines - 10)))
@@ -1496,7 +1496,7 @@ if ufo then
             })
             
             -- Set window highlight and enable syntax
-            vim.api.nvim_win_set_option(_G.hover_enhanced.code_winid, 'winhl', 'Normal:Normal,FloatBorder:FloatBorder')
+            vim.wo[_G.hover_enhanced.code_winid].winhl = 'Normal:Normal,FloatBorder:FloatBorder'
             
             -- Move cursor to the definition line and center it
             vim.api.nvim_win_set_cursor(_G.hover_enhanced.code_winid, {def_line, 0})
@@ -1887,6 +1887,47 @@ nnoremap <F6> :CoverageToggle<CR>
 " 심볼 아웃라인 키맵
 nnoremap <leader>so :SymbolsOutline<CR>
 nnoremap <F4> :SymbolsOutline<CR>
+
+" =================================
+" Copilot 설정
+" =================================
+
+" Copilot Node.js 경로 동적 감지 및 설정
+lua << EOF
+-- Node.js 경로 자동 감지 함수
+local function find_node_path()
+  -- 1. 시스템 PATH에서 node 찾기
+  local node_path = vim.fn.exepath('node')
+  if node_path ~= '' then
+    return node_path
+  end
+
+  -- 2. 일반적인 설치 경로들 확인
+  local common_paths = {
+    vim.fn.expand('$HOME') .. '/.local/bin/node',
+    '/usr/local/bin/node',
+    '/usr/bin/node',
+    '/opt/homebrew/bin/node',  -- macOS Apple Silicon
+    '/usr/local/opt/node/bin/node',  -- macOS Intel Homebrew
+  }
+
+  for _, path in ipairs(common_paths) do
+    if vim.fn.executable(path) == 1 then
+      return path
+    end
+  end
+
+  -- 3. 기본값 (없으면 시스템 기본 node 사용)
+  return 'node'
+end
+
+-- Copilot Node.js 경로 설정
+local node_path = find_node_path()
+vim.g.copilot_node_command = node_path
+
+-- 디버그용: Node.js 경로 확인 (필요시 주석 해제)
+-- vim.notify("Copilot Node.js path: " .. node_path, vim.log.levels.INFO)
+EOF
 
 " CopilotChat 키맵 설정
 let g:copilot_no_tab_map = v:true
