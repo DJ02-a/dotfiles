@@ -368,77 +368,133 @@ local function get_python_venv_paths()
     return paths, nil
 end
 
--- Pyright 설정 (중복 실행 방지)
+-- Pyright 설정 (Neovim 0.11+ 호환)
 if not pyright_running then
-    -- nvim-lspconfig 사용 (deprecated warning 무시)
-    local lspconfig = safe_require('lspconfig')
-    if lspconfig then
-        local extra_paths, venv_path = get_python_venv_paths()
-        
-        lspconfig.pyright.setup({
+    local extra_paths, venv_path = get_python_venv_paths()
+
+    -- on_attach 함수 정의
+    local function pyright_on_attach(client, bufnr)
+        -- 중복 클라이언트 정리
+        vim.defer_fn(function()
+            local clients = vim.lsp.get_clients({ name = "pyright" })
+            if #clients > 1 then
+                for i = 2, #clients do
+                    clients[i].stop()
+                end
+            end
+        end, 100)
+
+        -- Insert mode에서 실시간 진단 업데이트
+        vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI", "InsertLeave" }, {
+            buffer = bufnr,
+            callback = function()
+                vim.defer_fn(function()
+                    vim.diagnostic.show(nil, bufnr)
+                end, 100)
+            end,
+        })
+
+        -- 인레이 힌트 설정
+        if client.server_capabilities.inlayHintProvider then
+            vim.lsp.inlay_hint.enable(true, { bufnr = bufnr })
+        end
+
+        -- nvim-navic 연동
+        local navic = safe_require('nvim-navic')
+        if navic and client.server_capabilities.documentSymbolProvider then
+            navic.attach(client, bufnr)
+        end
+
+        -- lsp_signature 연동
+        local lsp_signature = safe_require('lsp_signature')
+        if lsp_signature then
+            lsp_signature.on_attach({
+                bind = true,
+                handler_opts = { border = "rounded" }
+            }, bufnr)
+        end
+    end
+
+    -- Neovim 0.11+ 새로운 방식: vim.lsp.config 사용
+    if vim.lsp.config then
+        -- pyright LSP 설정 등록
+        vim.lsp.config.pyright = {
             cmd = { "pyright-langserver", "--stdio" },
             filetypes = { "python" },
-            single_file_support = true,
+            root_markers = {
+                "pyproject.toml",
+                "setup.py",
+                "setup.cfg",
+                "requirements.txt",
+                "Pipfile",
+                ".git"
+            },
             settings = {
                 python = {
                     pythonPath = vim.fn.exepath('python'),
                     venvPath = venv_path,
                     analysis = {
-                        typeCheckingMode = "basic",  -- strict에서 basic으로 변경
+                        typeCheckingMode = "basic",
                         autoImportCompletions = true,
                         autoSearchPaths = true,
                         useLibraryCodeForTypes = true,
                         diagnosticMode = "openFilesOnly",
                         reportMissingImports = true,
                         reportUnusedImport = false,
-                        reportUnusedVariable = true,   -- 사용되지 않는 변수 표시
+                        reportUnusedVariable = true,
                         reportUndefinedVariable = true,
                         extraPaths = extra_paths,
                     }
                 }
             },
-            on_attach = function(client, bufnr)
-                -- 중복 클라이언트 정리
-                vim.defer_fn(function()
-                    local clients = vim.lsp.get_clients({ name = "pyright" })
-                    if #clients > 1 then
-                        for i = 2, #clients do
-                            clients[i].stop()
-                        end
-                    end
-                end, 100)
-                
-                -- Insert mode에서 실시간 진단 업데이트
-                vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI", "InsertLeave" }, {
-                    buffer = bufnr,
-                    callback = function()
-                        vim.defer_fn(function()
-                            vim.diagnostic.show(nil, bufnr)
-                        end, 100)
-                    end,
-                })
-            
-                -- 인레이 힌트 설정
-                if client.server_capabilities.inlayHintProvider then
-                    vim.lsp.inlay_hint.enable(true, { bufnr = bufnr })
-                end
-                
-                -- nvim-navic 연동
-                local navic = safe_require('nvim-navic')
-                if navic and client.server_capabilities.documentSymbolProvider then
-                    navic.attach(client, bufnr)
-                end
-                
-                -- lsp_signature 연동
-                local lsp_signature = safe_require('lsp_signature')
-                if lsp_signature then
-                    lsp_signature.on_attach({
-                        bind = true,
-                        handler_opts = { border = "rounded" }
-                    }, bufnr)
+        }
+
+        -- Python 파일 자동 시작
+        vim.api.nvim_create_autocmd("FileType", {
+            pattern = "python",
+            callback = function()
+                vim.lsp.enable("pyright")
+            end,
+        })
+
+        -- on_attach 핸들러 추가
+        vim.api.nvim_create_autocmd("LspAttach", {
+            callback = function(args)
+                local client = vim.lsp.get_client_by_id(args.data.client_id)
+                if client and client.name == "pyright" then
+                    pyright_on_attach(client, args.buf)
                 end
             end,
         })
+    else
+        -- Fallback: 이전 방식 사용 (Neovim 0.10 이하)
+        local lspconfig = safe_require('lspconfig')
+        if lspconfig then
+            lspconfig.pyright.setup({
+                cmd = { "pyright-langserver", "--stdio" },
+                filetypes = { "python" },
+                single_file_support = true,
+                settings = {
+                    python = {
+                        pythonPath = vim.fn.exepath('python'),
+                        venvPath = venv_path,
+                        analysis = {
+                            typeCheckingMode = "basic",
+                            autoImportCompletions = true,
+                            autoSearchPaths = true,
+                            useLibraryCodeForTypes = true,
+                            diagnosticMode = "openFilesOnly",
+                            reportMissingImports = true,
+                            reportUnusedImport = false,
+                            reportUnusedVariable = true,
+                            reportUndefinedVariable = true,
+                            extraPaths = extra_paths,
+                        }
+                    }
+                },
+                on_attach = pyright_on_attach,
+            })
+        end
     end
 end
 
