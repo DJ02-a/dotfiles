@@ -380,7 +380,7 @@ install_claudia() {
 # Install SuperClaude Framework
 install_superclaude() {
     print_step "Installing SuperClaude Framework..."
-    
+
     # Check if SuperClaude is already installed
     if python3 -c "import SuperClaude" 2>/dev/null; then
         print_warning "SuperClaude is already installed"
@@ -391,9 +391,9 @@ install_superclaude() {
             return 0
         fi
     fi
-    
+
     print_info "Installing SuperClaude via UV..."
-    
+
     # Create virtual environment if using UV
     if command_exists uv; then
         uv venv ~/.superclaude-env --python python3
@@ -404,9 +404,9 @@ install_superclaude() {
         print_warning "UV not available, using pip..."
         python3 -m pip install --user SuperClaude
     fi
-    
+
     print_info "Configuring SuperClaude..."
-    
+
     # Run SuperClaude installer
     if command_exists uv && [[ -f ~/.superclaude-env/bin/activate ]]; then
         source ~/.superclaude-env/bin/activate
@@ -414,9 +414,40 @@ install_superclaude() {
     else
         python3 -m SuperClaude install --profile developer
     fi
-    
+
     print_success "SuperClaude Framework installed successfully"
     print_info "SuperClaude commands are now available in Claude Code"
+}
+
+# Install claude-notify for system notifications
+install_claude_notify() {
+    print_step "Installing claude-notify..."
+
+    # Check if claude-notify is already installed
+    if python3 -c "import claude_notify" 2>/dev/null || command_exists claude-notify; then
+        print_warning "claude-notify is already installed"
+        return 0
+    fi
+
+    print_info "Installing claude-notify via pip..."
+
+    # Install using pip
+    if command_exists pip3; then
+        pip3 install --user claude-notify
+    elif command_exists pip; then
+        pip install --user claude-notify
+    else
+        python3 -m pip install --user claude-notify
+    fi
+
+    # Verify installation
+    if command_exists claude-notify || python3 -c "import claude_notify" 2>/dev/null; then
+        print_success "claude-notify installed successfully"
+        print_info "System notifications will be enabled for Claude Code"
+    else
+        print_warning "claude-notify installation may have failed"
+        print_info "You can install it manually with: pip install claude-notify"
+    fi
 }
 
 # Setup Claude CLI alias with correct path
@@ -583,7 +614,19 @@ main() {
     
     install_claudia
     echo ""
-    
+
+    install_superclaude
+    echo ""
+
+    install_claude_notify
+    echo ""
+
+    setup_claude_alias
+    echo ""
+
+    setup_environment
+    echo ""
+
 # Add PATH exports to shell configuration
 setup_environment() {
     print_step "Setting up environment..."
