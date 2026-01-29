@@ -11,21 +11,38 @@ install_vimplug() {
 }
 
 setup_initvim() {
-  echo "📝 기본 init.vim 설정 생성 중..."
+  echo "📝 init.vim 설정 복사 중..."
   mkdir -p ~/.config/nvim
 
-  cat <<EOF > ~/.config/nvim/init.vim
+  # 현재 스크립트의 디렉토리 찾기
+  SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+  # init.vim 파일이 같은 디렉토리에 있는지 확인
+  if [ -f "$SCRIPT_DIR/init.vim" ]; then
+    cp "$SCRIPT_DIR/init.vim" ~/.config/nvim/init.vim
+    echo "✅ init.vim 복사 완료"
+  else
+    echo "⚠️  init.vim 파일을 찾을 수 없습니다: $SCRIPT_DIR/init.vim"
+    echo "기본 설정을 생성합니다..."
+    cat <<'EOF' > ~/.config/nvim/init.vim
 call plug#begin('~/.vim/plugged')
-
-" 기본 플러그인 예시
 Plug 'tpope/vim-sensible'
-Plug 'preservim/nerdtree'
-
 call plug#end()
-
-" :PluginInstall 명령도 가능하게 설정
-command! PluginInstall PlugInstall
 EOF
+  fi
+
+  # Lua 설정 디렉토리 복사 (있는 경우)
+  if [ -d "$SCRIPT_DIR/lua" ]; then
+    cp -r "$SCRIPT_DIR/lua" ~/.config/nvim/
+    echo "✅ Lua 설정 디렉토리 복사 완료"
+  fi
+}
+
+install_plugins() {
+  echo "🔌 플러그인 설치 중..."
+  echo "이 작업은 몇 분 정도 소요될 수 있습니다..."
+  nvim --headless "+PlugInstall" "+qall"
+  echo "✅ 플러그인 설치 완료"
 }
 
 if [[ "$OS" == "Darwin" ]]; then
@@ -88,6 +105,20 @@ fi
 
 # 공통 설치 작업
 install_vimplug
+setup_initvim
+install_plugins
 
-echo "✅ Neovim 설치 완료: $(nvim --version | head -n 1)"
-echo "💡 Neovim 실행 후 ':PluginInstall' 을 입력하여 플러그인을 설치하세요."
+echo ""
+echo "======================================"
+echo "✅ Neovim 설치 완료!"
+echo "======================================"
+echo "📦 Neovim: $(nvim --version | head -n 1)"
+echo "🔌 vim-plug: 설치 완료"
+echo "📝 init.vim: 설정 완료"
+echo "🎨 플러그인: 설치 완료"
+echo ""
+echo "💡 사용 방법:"
+echo "  - Neovim 실행: nvim"
+echo "  - 플러그인 업데이트: nvim에서 :PlugUpdate"
+echo "  - 설정 파일 위치: ~/.config/nvim/init.vim"
+echo "======================================"
