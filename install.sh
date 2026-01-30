@@ -29,6 +29,7 @@ ln -s ~/.config/dotfiles/nvim ~/.config
 ln -s ~/.config/dotfiles/neofetch ~/.config
 ln -s ~/.config/dotfiles/claude/settings.json ~/.claude/settings.json
 ln -s ~/.config/dotfiles/claude/commands ~/.claude/commands
+ln -s ~/.config/dotfiles/claude/skills ~/.claude/skills
 
 echo "Github Copilot 설정 필요"
 

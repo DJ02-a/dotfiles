@@ -153,6 +153,7 @@ uninstall_claude() {
     if confirm "Remove Claude Code configuration?"; then
         remove_symlink "$HOME/.claude/settings.json" "Claude settings"
         remove_symlink "$HOME/.claude/commands" "Claude commands"
+        remove_symlink "$HOME/.claude/skills" "Claude skills"
 
         print_warning "Note: claude-notify package was NOT removed"
         print_info "To remove claude-notify: pip uninstall claude-notify"
