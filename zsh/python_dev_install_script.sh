@@ -562,6 +562,21 @@ create_zshrc() {
 # 자동 생성됨
 # ===============================================
 
+# 콘솔 출력 (instant prompt 전에 실행)
+if [[ -z "$TMUX" ]]; then
+    neofetch
+
+    echo "🐍 Python Development Environment Ready!"
+    if command -v python3 >/dev/null; then
+        echo "Python: $(python3 --version)"
+    fi
+    if command -v poetry >/dev/null; then
+        echo "Poetry: $(poetry --version)"
+    elif [[ -f "$HOME/.local/bin/poetry" ]]; then
+        echo "Poetry: $($HOME/.local/bin/poetry --version)"
+    fi
+fi
+
 # Oh My Zsh 경로
 export ZSH="$HOME/.oh-my-zsh"
 
@@ -744,21 +759,6 @@ fi
 # fzf 설정 (설치된 경우)
 if command -v fzf >/dev/null; then
     [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
-fi
-
-# tmux 세션이 아닐 때만 출력
-if [[ -z "$TMUX" ]]; then
-    neofetch
-    
-    echo "🐍 Python Development Environment Ready!"
-    if command -v python3 >/dev/null; then
-        echo "Python: $(python3 --version)"
-    fi
-    if command -v poetry >/dev/null; then
-        echo "Poetry: $(poetry --version)"
-    elif [[ -f "$HOME/.local/bin/poetry" ]]; then
-        echo "Poetry: $($HOME/.local/bin/poetry --version)"
-    fi
 fi
 
 EOF
