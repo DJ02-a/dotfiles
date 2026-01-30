@@ -4,6 +4,61 @@ set -e
 echo "🌍 운영체제 감지 중..."
 OS="$(uname -s)"
 
+# 최소 요구 버전 (telescope.nvim 등 플러그인 요구사항)
+MIN_NVIM_VERSION="0.10.4"
+
+# 버전 비교 함수 (version1 >= version2 이면 0 반환)
+version_gte() {
+  [ "$(printf '%s\n' "$2" "$1" | sort -V | head -n1)" = "$2" ]
+}
+
+# 현재 설치된 nvim 버전 확인
+get_current_nvim_version() {
+  if command -v nvim &>/dev/null; then
+    nvim --version | head -n1 | grep -oP 'v\K[0-9]+\.[0-9]+\.[0-9]+'
+  else
+    echo ""
+  fi
+}
+
+# AppImage로 nvim 설치 (Linux 전용)
+install_nvim_appimage() {
+  echo "⬇️ Neovim AppImage 다운로드 중..."
+
+  # 최신 릴리스 버전 확인
+  LATEST_VERSION=$(curl -s https://api.github.com/repos/neovim/neovim/releases/latest | grep -oP '"tag_name": "v\K[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+  echo "📦 최신 버전: v${LATEST_VERSION}"
+
+  # 아키텍처 확인
+  ARCH=$(uname -m)
+  if [ "$ARCH" = "x86_64" ]; then
+    APPIMAGE_NAME="nvim-linux-x86_64.appimage"
+  elif [ "$ARCH" = "aarch64" ]; then
+    APPIMAGE_NAME="nvim-linux-arm64.appimage"
+  else
+    echo "❌ 지원하지 않는 아키텍처입니다: $ARCH"
+    exit 1
+  fi
+
+  # 다운로드
+  curl -fLO "https://github.com/neovim/neovim/releases/download/v${LATEST_VERSION}/${APPIMAGE_NAME}"
+  chmod u+x "$APPIMAGE_NAME"
+
+  # 설치 (sudo 가능하면 /usr/local/bin, 아니면 ~/.local/bin)
+  mkdir -p ~/.local/bin
+  mv "$APPIMAGE_NAME" ~/.local/bin/nvim
+
+  # PATH에 ~/.local/bin 추가 확인
+  if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+    echo "⚠️  ~/.local/bin이 PATH에 없습니다. 쉘 설정에 추가해주세요."
+  fi
+
+  # PATH에 즉시 추가 (현재 세션에서 사용 가능하도록)
+  export PATH="$HOME/.local/bin:$PATH"
+
+  echo "✅ Neovim v${LATEST_VERSION} 설치 완료 (~/.local/bin/nvim)"
+}
+
 install_vimplug() {
   echo "🔌 vim-plug 설치 중..."
   curl -fLo ~/.local/share/nvim/site/autoload/plug.vim --create-dirs \
@@ -47,55 +102,47 @@ install_plugins() {
 
 if [[ "$OS" == "Darwin" ]]; then
   echo "🍎 macOS 환경입니다."
-  
+
   if ! command -v brew &>/dev/null; then
     echo "❌ Homebrew가 설치되어 있지 않습니다. 먼저 설치해주세요: https://brew.sh"
     exit 1
   fi
 
-  echo "⬇️ Homebrew로 Neovim 설치 중..."
-  brew install neovim
+  CURRENT_VERSION=$(get_current_nvim_version)
+
+  if [ -n "$CURRENT_VERSION" ]; then
+    echo "📦 현재 설치된 버전: v${CURRENT_VERSION}"
+    echo "📦 최소 요구 버전: v${MIN_NVIM_VERSION}"
+
+    if version_gte "$CURRENT_VERSION" "$MIN_NVIM_VERSION"; then
+      echo "✅ 현재 버전이 요구사항을 충족합니다. 설치를 건너뜁니다."
+    else
+      echo "⚠️  현재 버전이 너무 오래되었습니다. 업그레이드합니다..."
+      brew upgrade neovim
+    fi
+  else
+    echo "⬇️ Homebrew로 Neovim 설치 중..."
+    brew install neovim
+  fi
 
 elif [[ "$OS" == "Linux" ]]; then
   echo "🐧 Linux 환경입니다."
 
-  # 패키지 매니저별 설치
-  if command -v apt-get &>/dev/null; then
-    # Debian/Ubuntu
-    echo "⬇️ apt-get으로 Neovim 설치 중..."
-    sudo apt-get update
-    sudo apt-get install -y neovim
+  CURRENT_VERSION=$(get_current_nvim_version)
 
-  elif command -v dnf &>/dev/null; then
-    # Fedora
-    echo "⬇️ dnf로 Neovim 설치 중..."
-    sudo dnf install -y neovim
+  if [ -n "$CURRENT_VERSION" ]; then
+    echo "📦 현재 설치된 버전: v${CURRENT_VERSION}"
+    echo "📦 최소 요구 버전: v${MIN_NVIM_VERSION}"
 
-  elif command -v yum &>/dev/null; then
-    # CentOS/RHEL
-    echo "⬇️ yum으로 Neovim 설치 중..."
-    sudo yum install -y epel-release
-    sudo yum install -y neovim
-
-  elif command -v pacman &>/dev/null; then
-    # Arch Linux
-    echo "⬇️ pacman으로 Neovim 설치 중..."
-    sudo pacman -S --noconfirm neovim
-
-  elif command -v zypper &>/dev/null; then
-    # openSUSE
-    echo "⬇️ zypper로 Neovim 설치 중..."
-    sudo zypper install -y neovim
-
+    if version_gte "$CURRENT_VERSION" "$MIN_NVIM_VERSION"; then
+      echo "✅ 현재 버전이 요구사항을 충족합니다. 설치를 건너뜁니다."
+    else
+      echo "⚠️  현재 버전이 너무 오래되었습니다. AppImage로 업그레이드합니다..."
+      install_nvim_appimage
+    fi
   else
-    # 패키지 매니저가 없으면 AppImage 사용
-    echo "⚠️  패키지 매니저를 찾을 수 없습니다. AppImage로 설치합니다..."
-    echo "⬇️ Neovim AppImage 다운로드 중..."
-    curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim.appimage
-    chmod u+x nvim.appimage
-
-    echo "🛠️ /usr/local/bin/nvim 으로 이동 (sudo 필요)"
-    sudo mv nvim.appimage /usr/local/bin/nvim
+    echo "📦 Neovim이 설치되어 있지 않습니다."
+    install_nvim_appimage
   fi
 
 else

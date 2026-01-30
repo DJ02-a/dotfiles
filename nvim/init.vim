@@ -646,39 +646,28 @@ if vim_coach then
     vim_coach.setup()
 end
 
--- nvim-treesitter 설정
-local treesitter = safe_require('nvim-treesitter.configs')
+-- nvim-treesitter 설정 (최신 API 사용)
+local treesitter = safe_require('nvim-treesitter')
 if treesitter then
-    treesitter.setup({
-        ensure_installed = {
-            "python", "lua", "vim", "javascript", "html", "css", 
-            "json", "yaml", "toml", "markdown", "bash", "dockerfile"
-        },
-        sync_install = false,
-        auto_install = true,
-        highlight = {
-            enable = true,
-            additional_vim_regex_highlighting = false,
-            disable = function(lang, buf)
-                local max_filesize = 100 * 1024 -- 100 KB
-                local ok, stats = pcall(vim.loop.fs_stat, vim.api.nvim_buf_get_name(buf))
-                if ok and stats and stats.size > max_filesize then
-                    return true
-                end
-            end,
-        },
-        indent = {
-            enable = true
-        },
-        fold = {
-            enable = true
-        },
-        rainbow = {
-            enable = true,
-            extended_mode = true,
-            max_file_lines = nil,
-        }
+    -- 기본 설정
+    treesitter.setup({})
+
+    -- treesitter 하이라이팅 활성화 (autocmd로 파일 열 때 자동 시작)
+    vim.api.nvim_create_autocmd("FileType", {
+        callback = function(args)
+            local max_filesize = 100 * 1024 -- 100 KB
+            local ok, stats = pcall(vim.uv.fs_stat, vim.api.nvim_buf_get_name(args.buf))
+            if ok and stats and stats.size > max_filesize then
+                return -- 큰 파일은 treesitter 비활성화
+            end
+            pcall(vim.treesitter.start, args.buf)
+        end,
     })
+
+    -- treesitter 기반 폴딩 설정
+    vim.opt.foldmethod = "expr"
+    vim.opt.foldexpr = "v:lua.vim.treesitter.foldexpr()"
+    vim.opt.foldlevel = 99 -- 기본적으로 모든 폴드 열기
 end
 
 -- Dashboard 설정 (수정된 부분 - 에러 처리 개선)
