@@ -646,28 +646,41 @@ if vim_coach then
     vim_coach.setup()
 end
 
--- nvim-treesitter 설정 (최신 API 사용)
-local treesitter = safe_require('nvim-treesitter')
-if treesitter then
-    -- 기본 설정
-    treesitter.setup({})
-
-    -- treesitter 하이라이팅 활성화 (autocmd로 파일 열 때 자동 시작)
-    vim.api.nvim_create_autocmd("FileType", {
-        callback = function(args)
-            local max_filesize = 100 * 1024 -- 100 KB
-            local ok, stats = pcall(vim.uv.fs_stat, vim.api.nvim_buf_get_name(args.buf))
-            if ok and stats and stats.size > max_filesize then
-                return -- 큰 파일은 treesitter 비활성화
-            end
-            pcall(vim.treesitter.start, args.buf)
-        end,
+-- nvim-treesitter 설정 (1.0.0+ 호환)
+-- 새 버전에서는 nvim-treesitter.configs가 제거됨
+local treesitter_ok, treesitter = pcall(require, 'nvim-treesitter.configs')
+if treesitter_ok then
+    -- 구버전 API (0.9.x 이하)
+    treesitter.setup({
+        ensure_installed = {
+            "python", "lua", "vim", "javascript", "html", "css",
+            "json", "yaml", "toml", "markdown", "bash", "dockerfile"
+        },
+        sync_install = false,
+        auto_install = true,
+        highlight = {
+            enable = true,
+            additional_vim_regex_highlighting = false,
+            disable = function(lang, buf)
+                local max_filesize = 100 * 1024 -- 100 KB
+                local ok, stats = pcall(vim.loop.fs_stat, vim.api.nvim_buf_get_name(buf))
+                if ok and stats and stats.size > max_filesize then
+                    return true
+                end
+            end,
+        },
+        indent = {
+            enable = true
+        },
     })
-
-    -- treesitter 기반 폴딩 설정
-    vim.opt.foldmethod = "expr"
-    vim.opt.foldexpr = "v:lua.vim.treesitter.foldexpr()"
-    vim.opt.foldlevel = 99 -- 기본적으로 모든 폴드 열기
+else
+    -- 신버전 API (1.0.0+): nvim-treesitter가 설치되어 있으면 기본 highlight 활성화
+    local ts_ok, ts = pcall(require, 'nvim-treesitter')
+    if ts_ok and ts.setup then
+        ts.setup({})
+    end
+    -- Neovim 0.10+에서는 treesitter highlight가 기본 활성화됨
+    -- 파서 설치는 :TSInstall 명령어로 수동 설치 필요
 end
 
 -- Dashboard 설정 (수정된 부분 - 에러 처리 개선)
