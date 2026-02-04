@@ -175,7 +175,7 @@ uninstall_terminal_tools() {
         print_warning "Note: Packages (lsd, bat, neofetch, lazygit, uv) were NOT removed"
         print_info "To remove packages:"
         echo "  macOS: brew uninstall lsd bat neofetch lazygit"
-        echo "  Linux: sudo apt remove bat neofetch (lsd via snap: sudo snap remove lsd)"
+        echo "  Linux: sudo apt remove bat neofetch (lsd: cargo uninstall lsd)"
         echo "  uv: curl -LsSf https://astral.sh/uv/uninstall.sh | sh"
     else
         print_info "Skipped terminal tools uninstall"

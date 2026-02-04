@@ -89,18 +89,15 @@ install_ubuntu_debian() {
     print_info "Updating package lists..."
     sudo apt update
 
-    # lsd (via snap or cargo)
+    # lsd (via cargo - preferred over snap due to sandbox restrictions)
     if ! command_exists lsd; then
-        if command_exists snap; then
-            print_info "Installing lsd via snap..."
-            sudo snap install lsd
+        if command_exists cargo; then
+            print_info "Installing lsd via cargo..."
+            cargo install lsd
         else
-            print_warning "snap not available, trying cargo..."
-            if command_exists cargo; then
-                cargo install lsd
-            else
-                print_warning "lsd installation skipped (no snap or cargo)"
-            fi
+            print_warning "cargo not available"
+            print_info "Install Rust first: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
+            print_warning "lsd installation skipped"
         fi
     else
         print_success "lsd already installed"
