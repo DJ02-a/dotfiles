@@ -205,6 +205,28 @@ install_uv() {
     fi
 }
 
+# Setup lsd configuration
+setup_lsd_config() {
+    print_info "Setting up lsd configuration..."
+
+    local SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local LSD_CONFIG_DIR="$HOME/.config/lsd"
+
+    # Create lsd config directory
+    mkdir -p "$LSD_CONFIG_DIR"
+
+    # Symlink config files
+    if [[ -f "$SCRIPT_DIR/lsd/config.yaml" ]]; then
+        ln -sf "$SCRIPT_DIR/lsd/config.yaml" "$LSD_CONFIG_DIR/config.yaml"
+        print_success "Linked lsd config.yaml"
+    fi
+
+    if [[ -f "$SCRIPT_DIR/lsd/colors.yaml" ]]; then
+        ln -sf "$SCRIPT_DIR/lsd/colors.yaml" "$LSD_CONFIG_DIR/colors.yaml"
+        print_success "Linked lsd colors.yaml (Dracula theme)"
+    fi
+}
+
 # Setup shell aliases
 setup_aliases() {
     print_info "Setting up shell aliases..."
@@ -230,6 +252,9 @@ setup_aliases() {
 # ===============================================
 # Custom Aliases - Enhanced Terminal Tools
 # ===============================================
+
+# Remove background color for other-writable directories
+export LS_COLORS="ow=01;34:tw=01;34:st=01;34"
 
 alias ls="lsd --no-symlink"
 alias ll="lsd -l --no-symlink"
@@ -289,6 +314,9 @@ main() {
 
     echo ""
     install_uv
+
+    echo ""
+    setup_lsd_config
 
     echo ""
     setup_aliases

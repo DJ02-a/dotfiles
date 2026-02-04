@@ -1,0 +1,43 @@
+#  Dracula Dark Theme for lsd
+#  ┬  ┌─┐┌┬┐
+#  │  └─┐ ││
+#  ┴─┘└─┘─┴┘
+#  https://draculatheme.com/lsd
+
+user: 159                           # cyan
+group: 231                          # foreground
+permission:
+  read: 183                         # purple
+  write: 212                        # pink
+  exec: 159                         # cyan
+  exec-sticky: 159                  # cyan
+  no-access: 210                    # red
+date:
+  hour-old: 146                     # comment 20% lighter
+  day-old: 103                      # comment
+  older: 60                         # current line
+size:
+  none: 60                          # current line
+  small: 120                        # green
+  medium: 215                       # orange
+  large: 210                        # red
+inode:
+  valid: 231                        # foreground
+  invalid: 210                      # red
+links:
+  valid: 159                        # cyan
+  invalid: 210                      # red
+tree-edge: 183                      # purple
+
+# Git status (Dracula colors)
+git-status:
+  default: 60                       # current line
+  unmodified: 60                    # current line
+  ignored: 60                       # current line
+  new-in-index: 120                 # green
+  new-in-workdir: 120               # green
+  typechange: 215                   # orange
+  deleted: 210                      # red
+  renamed: 159                      # cyan
+  modified: 215                     # orange
+  conflicted: 210                   # red
