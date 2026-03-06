@@ -3,7 +3,7 @@
 # =============================================================================
 # Claude Tools Installation Script - install.bash
 # =============================================================================
-# This script installs Claudia and SuperClaude Framework
+# This script installs Claudia
 # Supports: Linux, macOS with automated dependency management
 # =============================================================================
 
@@ -377,48 +377,6 @@ install_claudia() {
     fi
 }
 
-# Install SuperClaude Framework
-install_superclaude() {
-    print_step "Installing SuperClaude Framework..."
-
-    # Check if SuperClaude is already installed
-    if python3 -c "import SuperClaude" 2>/dev/null; then
-        print_warning "SuperClaude is already installed"
-        read -p "Do you want to reinstall? (y/N): " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            print_info "Skipping SuperClaude installation"
-            return 0
-        fi
-    fi
-
-    print_info "Installing SuperClaude via UV..."
-
-    # Create virtual environment if using UV
-    if command_exists uv; then
-        uv venv ~/.superclaude-env --python python3
-        source ~/.superclaude-env/bin/activate
-        uv pip install SuperClaude
-    else
-        # Fallback to pip
-        print_warning "UV not available, using pip..."
-        python3 -m pip install --user SuperClaude
-    fi
-
-    print_info "Configuring SuperClaude..."
-
-    # Run SuperClaude installer
-    if command_exists uv && [[ -f ~/.superclaude-env/bin/activate ]]; then
-        source ~/.superclaude-env/bin/activate
-        python3 -m SuperClaude install --profile developer
-    else
-        python3 -m SuperClaude install --profile developer
-    fi
-
-    print_success "SuperClaude Framework installed successfully"
-    print_info "SuperClaude commands are now available in Claude Code"
-}
-
 # Install claude-notify for system notifications
 install_claude_notify() {
     print_step "Installing claude-notify..."
@@ -538,14 +496,6 @@ verify_installations() {
         failed=1
     fi
     
-    # Check SuperClaude
-    if python3 -c "import SuperClaude" 2>/dev/null; then
-        print_success "✓ SuperClaude Framework is installed"
-    else
-        print_error "✗ SuperClaude Framework installation failed"
-        failed=1
-    fi
-    
     # Check core dependencies
     if command_exists rustc; then
         print_success "✓ Rust is available"
@@ -574,8 +524,6 @@ cleanup_on_error() {
     
     # Remove partial installations if they exist
     [[ -d "$HOME/claudia" ]] && rm -rf "$HOME/claudia"
-    [[ -d "$HOME/.superclaude-env" ]] && rm -rf "$HOME/.superclaude-env"
-    
     print_info "Cleanup completed"
 }
 
@@ -583,7 +531,7 @@ cleanup_on_error() {
 main() {
     echo "============================================================================="
     echo "  Claude Tools Installer"
-    echo "  Installing: Claudia + SuperClaude Framework"
+    echo "  Installing: Claudia"
     echo "============================================================================="
     echo ""
     
@@ -613,9 +561,6 @@ main() {
     echo ""
     
     install_claudia
-    echo ""
-
-    install_superclaude
     echo ""
 
     install_claude_notify
@@ -659,11 +604,6 @@ setup_environment() {
         echo ""
         echo "# Claude Tools aliases (safe versions)"
         echo "alias claudia-gui='claudia'  # Launch Claudia GUI"
-        if [[ -n "$CLAUDE_CLI_PATH" ]]; then
-            echo "alias sc-help='$CLAUDE_CLI_PATH /sc:help'  # SuperClaude help"
-        else
-            echo "# alias sc-help='claude /sc:help'  # SuperClaude help (claude CLI not found)"
-        fi
         echo ""
     } >> "$shell_config"
     
@@ -680,19 +620,16 @@ setup_environment() {
         echo ""
         print_info "Installed tools:"
         echo "  • Claudia - GUI for Claude Code"
-        echo "  • SuperClaude Framework - Enhanced Claude Code with specialized commands"
         echo ""
         print_info "Next steps:"
         echo "  1. Restart your terminal or run: source ~/.bashrc (or ~/.zshrc)"
         echo "  2. Launch Claudia: claudia"
-        echo "  3. Use SuperClaude commands in Claude Code (e.g., /sc:help)"
         if [[ -n "$CLAUDE_CLI_PATH" ]]; then
             echo "  4. Claude CLI is available at: $CLAUDE_CLI_PATH"
         fi
         echo ""
         print_info "Documentation:"
         echo "  • Claudia: https://github.com/getAsterisk/claudia"
-        echo "  • SuperClaude: https://github.com/SuperClaude-Org/SuperClaude_Framework"
         echo ""
     else
         print_error "❌ Some installations failed. Please check the error messages above."
@@ -716,7 +653,6 @@ case "${1:-}" in
         echo ""
         echo "This script installs:"
         echo "  • Claudia - GUI application for Claude Code"
-        echo "  • SuperClaude Framework - Enhanced commands for Claude Code"
         echo ""
         exit 0
         ;;
