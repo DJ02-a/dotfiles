@@ -1773,12 +1773,9 @@ nnoremap K :lua vim.lsp.buf.hover()<CR>
 " =================================
 
 " Neo-tree 토글 키맵
-nnoremap <leader>n :Neotree toggle<CR>
 nnoremap <F3> :Neotree toggle<CR>
 nnoremap <C-n> :lua require('config.neotree').toggle_with_resize()<CR>
 
-" Neo-tree에서 현재 파일 찾기
-nnoremap <leader>nf :Neotree reveal<CR>
 
 " Neo-tree 포커스
 nnoremap <leader>e :Neotree focus<CR>
