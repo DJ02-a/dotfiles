@@ -20,6 +20,27 @@ autoload -Uz compinit
 compinit -C
 
 # ==============================================================================
+# 테마 — Tokyo Night 색상 팔레트
+# ==============================================================================
+
+# fzf: Tokyo Night 색상 적용
+export FZF_DEFAULT_OPTS="
+  --color=fg:#c0caf5,bg:#1a1b26,hl:#ff9e64
+  --color=fg+:#c0caf5,bg+:#292e42,hl+:#ff9e64
+  --color=info:#7aa2f7,prompt:#7dcfff,pointer:#7dcfff
+  --color=marker:#9ece6a,spinner:#9ece6a,header:#bb9af7
+  --color=border:#414868
+  --border=rounded
+  --prompt='❯ '
+  --pointer='▶'
+  --marker='✓'
+"
+
+# zsh-autosuggestions: Tokyo Night muted 색상 (#565f89)
+ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=#565f89"
+ZSH_AUTOSUGGEST_STRATEGY=(history completion)
+
+# ==============================================================================
 # 플러그인 — Turbo mode (프롬프트 표시 후 비동기 로드 → 빠른 시작)
 # ==============================================================================
 
@@ -29,10 +50,12 @@ zinit wait lucid for \
     Aloxaf/fzf-tab
 
 # Completion + Syntax highlighting + Autosuggestions
+# fast-syntax-highlighting: free 테마 (Tokyo Night 터미널 팔레트와 잘 어울림)
 zinit wait lucid for \
     blockf \
         zsh-users/zsh-completions \
     atinit"ZINIT[COMPINIT_OPTS]=-C; zicompinit; zicdreplay" \
+    atload"fast-theme free 2>/dev/null; true" \
         zdharma-continuum/fast-syntax-highlighting \
     atload"!_zsh_autosuggest_start" \
         zsh-users/zsh-autosuggestions
@@ -45,6 +68,28 @@ zinit wait lucid for \
 # OMZP::macos 제외: zinit snippet 방식에서 music/spotify 서브파일 누락 오류 발생
 zinit wait lucid for \
     OMZP::git
+
+# ==============================================================================
+# fzf-tab 설정 — Tokyo Night 스타일
+# ==============================================================================
+
+# FZF_DEFAULT_OPTS 색상 그대로 사용
+zstyle ':fzf-tab:*' use-fzf-default-opts yes
+
+# 자동완성 목록에 LS_COLORS 적용 (파일 타입별 색상)
+zstyle ':completion:*' list-colors ${(s.:.)LS_COLORS}
+
+# 그룹 설명 표시 형식 (Tokyo Night cyan)
+zstyle ':completion:*:descriptions' format '[%d]'
+
+# fzf UI 사용 (기본 메뉴 비활성화)
+zstyle ':completion:*' menu no
+
+# cd 시 lsd로 디렉토리 내용 미리보기
+zstyle ':fzf-tab:complete:cd:*' fzf-preview 'lsd -1 --color=always $realpath'
+
+# 그룹 전환 키 (< / >)
+zstyle ':fzf-tab:*' switch-group '<' '>'
 
 # ==============================================================================
 # 키 바인딩
