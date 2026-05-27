@@ -34,10 +34,10 @@ zinit wait lucid for \
 zinit wait lucid for \
     zsh-users/zsh-history-substring-search
 
-# Oh My Zsh 플러그인 (git alias, macOS 유틸리티)
+# Oh My Zsh 플러그인 (git alias)
+# OMZP::macos 제외: zinit snippet 방식에서 music/spotify 서브파일 누락 오류 발생
 zinit wait lucid for \
-    OMZP::git \
-    OMZP::macos
+    OMZP::git
 
 # ==============================================================================
 # 키 바인딩

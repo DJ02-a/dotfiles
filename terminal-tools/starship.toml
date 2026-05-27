@@ -122,7 +122,4 @@ format = '[$symbol$workspace]($style) '
 style = "#7aa2f7"
 
 [kubernetes]
-symbol = "☸ "
-format = '[$symbol$context]($style) '
-style = "#7dcfff"
-disabled = false
+disabled = true
