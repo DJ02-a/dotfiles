@@ -77,8 +77,8 @@ zinit wait lucid for \
 # FZF_DEFAULT_OPTS 색상 그대로 사용
 zstyle ':fzf-tab:*' use-fzf-default-opts yes
 
-# fzf-tab 높이 직접 강제 지정 (FZF_DEFAULT_OPTS의 --height를 fzf-tab이 덮어쓰는 문제 방지)
-zstyle ':fzf-tab:*' fzf-flags --height=~40% --min-height=10
+# fzf-tab 높이 + Ctrl+/ 로 미리보기 패널 토글
+zstyle ':fzf-tab:*' fzf-flags --height=~40% --min-height=10 --bind 'ctrl-/:toggle-preview'
 
 # 자동완성 목록에 LS_COLORS 적용 (파일 타입별 색상)
 zstyle ':completion:*' list-colors ${(s.:.)LS_COLORS}
@@ -89,8 +89,16 @@ zstyle ':completion:*:descriptions' format '[%d]'
 # fzf UI 사용 (기본 메뉴 비활성화)
 zstyle ':completion:*' menu no
 
-# cd 시 lsd로 디렉토리 내용 미리보기
-zstyle ':fzf-tab:complete:cd:*' fzf-preview 'lsd -1 --color=always $realpath'
+# 모든 파일/폴더 자동완성에서 미리보기:
+#   폴더 → lsd로 내용 목록
+#   파일 → bat으로 내용 (최대 50줄)
+zstyle ':fzf-tab:complete:*:*' fzf-preview '
+  if [[ -d "$realpath" ]]; then
+    lsd -1 --color=always "$realpath"
+  elif [[ -f "$realpath" ]]; then
+    bat --color=always --line-range=:50 "$realpath" 2>/dev/null || cat "$realpath"
+  fi
+'
 
 # 그룹 전환 키 (< / >)
 zstyle ':fzf-tab:*' switch-group '<' '>'
