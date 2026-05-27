@@ -76,10 +76,13 @@ zinit wait lucid for \
 # FZF_DEFAULT_OPTS 색상 그대로 사용
 zstyle ':fzf-tab:*' use-fzf-default-opts yes
 
+# fzf-tab 높이 직접 강제 지정 (FZF_DEFAULT_OPTS의 --height를 fzf-tab이 덮어쓰는 문제 방지)
+zstyle ':fzf-tab:*' fzf-flags --height=100%
+
 # 자동완성 목록에 LS_COLORS 적용 (파일 타입별 색상)
 zstyle ':completion:*' list-colors ${(s.:.)LS_COLORS}
 
-# 그룹 설명 표시 형식 (Tokyo Night cyan)
+# 그룹 설명 표시 형식
 zstyle ':completion:*:descriptions' format '[%d]'
 
 # fzf UI 사용 (기본 메뉴 비활성화)
