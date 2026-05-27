@@ -26,6 +26,18 @@ bash install.sh
 cd ..
 
 # ==============================================================================
+# tealdeer (tldr) 설치
+# ==============================================================================
+echo "Installing tealdeer (tldr)..."
+if ! command -v tldr >/dev/null 2>&1; then
+    brew install tealdeer
+    tldr --update
+    echo "  ✓ tealdeer installed"
+else
+    echo "  ✓ tealdeer already installed"
+fi
+
+# ==============================================================================
 # Zinit 설치
 # ==============================================================================
 echo "Installing Zinit..."
