@@ -245,6 +245,25 @@ uninstall_shell_env() {
     fi
 }
 
+uninstall_zsh_shell() {
+    print_header "Uninstall Zinit + Starship Shell Setup"
+
+    if confirm "Remove zshrc symlink and restore shell config?"; then
+        # ~/.zshrc 심볼릭 링크 제거
+        remove_symlink "$HOME/.zshrc" "zshrc symlink"
+
+        # Starship 설정 심볼릭 링크 제거
+        remove_symlink "$HOME/.config/starship.toml" "Starship config symlink"
+
+        print_warning "Note: Zinit and Starship binaries were NOT removed"
+        print_info "To fully remove:"
+        echo "  rm -rf \${XDG_DATA_HOME:-\$HOME/.local/share}/zinit"
+        echo "  sudo sh -c 'rm \$(which starship)'  # or: brew uninstall starship"
+    else
+        print_info "Skipped Zinit + Starship uninstall"
+    fi
+}
+
 # ==============================================================================
 # Interactive menu
 # ==============================================================================
@@ -261,9 +280,9 @@ show_menu() {
     echo "  5) Python development environment"
     echo "  6) Node.js setup (symlinks)"
     echo "  7) Shell environment variables"
+    echo "  8) Zinit + Starship shell setup"
     echo ""
-    echo "  8) All of the above"
-    echo "  9) Custom selection (ask for each)"
+    echo "  9) All of the above"
     echo "  0) Cancel"
     echo ""
 }
@@ -307,6 +326,9 @@ main() {
             uninstall_shell_env
             ;;
         8)
+            uninstall_zsh_shell
+            ;;
+        9)
             print_info "Uninstalling all components..."
             uninstall_nvim
             uninstall_neofetch
@@ -315,16 +337,7 @@ main() {
             uninstall_python_env
             uninstall_node_setup
             uninstall_shell_env
-            ;;
-        9)
-            print_info "Custom selection mode..."
-            uninstall_nvim
-            uninstall_neofetch
-            uninstall_claude
-            uninstall_terminal_tools
-            uninstall_python_env
-            uninstall_node_setup
-            uninstall_shell_env
+            uninstall_zsh_shell
             ;;
         0)
             print_warning "Uninstall cancelled"
