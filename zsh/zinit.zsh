@@ -31,6 +31,8 @@ export FZF_DEFAULT_OPTS="
   --color=marker:#9ece6a,spinner:#9ece6a,header:#bb9af7
   --color=border:#414868
   --border=rounded
+  --height=~40%
+  --min-height=10
   --prompt='❯ '
   --pointer='▶'
   --marker='✓'
@@ -55,7 +57,6 @@ zinit wait lucid for \
     blockf \
         zsh-users/zsh-completions \
     atinit"ZINIT[COMPINIT_OPTS]=-C; zicompinit; zicdreplay" \
-    atload"fast-theme free 2>/dev/null; true" \
         zdharma-continuum/fast-syntax-highlighting \
     atload"!_zsh_autosuggest_start" \
         zsh-users/zsh-autosuggestions
