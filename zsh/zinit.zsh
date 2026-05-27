@@ -58,12 +58,17 @@ zinit wait lucid for \
         zsh-users/zsh-completions \
     atinit"ZINIT[COMPINIT_OPTS]=-C; zicompinit; zicdreplay" \
         zdharma-continuum/fast-syntax-highlighting \
-    atload"!_zsh_autosuggest_start" \
+    atload"!_zsh_autosuggest_start; bindkey '^ ' autosuggest-accept" \
         zsh-users/zsh-autosuggestions
 
 # 히스토리 부분 검색 (↑↓ 키로 현재 입력과 일치하는 히스토리 탐색)
+# bindkey를 atload 안에 넣어야 Turbo mode에서 위젯 로드 후 바인딩됨
 zinit wait lucid for \
-    zsh-users/zsh-history-substring-search
+    atload"bindkey '^[[A' history-substring-search-up
+           bindkey '^[[B' history-substring-search-down
+           bindkey '^[OA' history-substring-search-up
+           bindkey '^[OB' history-substring-search-down" \
+        zsh-users/zsh-history-substring-search
 
 # Oh My Zsh 플러그인 (git alias)
 # OMZP::macos 제외: zinit snippet 방식에서 music/spotify 서브파일 누락 오류 발생
@@ -102,19 +107,6 @@ zstyle ':fzf-tab:complete:*:*' fzf-preview '
 
 # 그룹 전환 키 (< / >)
 zstyle ':fzf-tab:*' switch-group '<' '>'
-
-# ==============================================================================
-# 키 바인딩
-# ==============================================================================
-
-# 히스토리 부분 검색
-bindkey '^[[A' history-substring-search-up    # ↑
-bindkey '^[[B' history-substring-search-down  # ↓
-bindkey '^[OA' history-substring-search-up    # ↑ (tmux)
-bindkey '^[OB' history-substring-search-down  # ↓ (tmux)
-
-# Autosuggestions: →키로 수락
-bindkey '^ ' autosuggest-accept   # Ctrl+Space
 
 # ==============================================================================
 # Zsh 옵션
