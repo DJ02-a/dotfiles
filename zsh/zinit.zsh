@@ -31,7 +31,8 @@ export FZF_DEFAULT_OPTS="
   --color=marker:#9ece6a,spinner:#9ece6a,header:#bb9af7
   --color=border:#414868
   --border=rounded
-  --height=100%
+  --height=~40%
+  --min-height=10
   --prompt='❯ '
   --pointer='▶'
   --marker='✓'
@@ -77,7 +78,7 @@ zinit wait lucid for \
 zstyle ':fzf-tab:*' use-fzf-default-opts yes
 
 # fzf-tab 높이 직접 강제 지정 (FZF_DEFAULT_OPTS의 --height를 fzf-tab이 덮어쓰는 문제 방지)
-zstyle ':fzf-tab:*' fzf-flags --height=100%
+zstyle ':fzf-tab:*' fzf-flags --height=~40% --min-height=10
 
 # 자동완성 목록에 LS_COLORS 적용 (파일 타입별 색상)
 zstyle ':completion:*' list-colors ${(s.:.)LS_COLORS}
