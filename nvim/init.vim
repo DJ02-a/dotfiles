@@ -43,8 +43,8 @@ autocmd FileType dockerfile setlocal tabstop=4 shiftwidth=4 softtabstop=4 expand
 
 call plug#begin('~/.config/nvim/plugged')
 " THEMES
-" Plug 'rebelot/kanagawa.nvim'
-Plug 'ellisonleao/gruvbox.nvim'
+Plug 'rebelot/kanagawa.nvim'
+" Plug 'ellisonleao/gruvbox.nvim'
 " Any valid git URL is allowed
 Plug 'https://github.com/junegunn/vim-easy-align.git'
 " Use 'dir' option to install plugin in a non-default directory
@@ -146,37 +146,31 @@ call plug#end()
 
 " Color schemes should be loaded after plug#end().
 " We prepend it with 'silent!' to ignore errors when it's not yet installed.
-" silent! colorscheme kanagawa
-silent! colorscheme gruvbox
+silent! colorscheme kanagawa-wave
+" silent! colorscheme gruvbox
 " 여기서 플러그인 설정 시작 (Lua 코드)
 lua << EOF
 -- =================================
--- THEME 설정
+-- THEME 설정 (Kanagawa Wave)
 -- =================================
-require("gruvbox").setup({
-  terminal_colors = true, -- add neovim terminal colors
+require("kanagawa").setup({
+  compile = false,
   undercurl = true,
-  underline = true,
-  bold = true,
-  italic = {
-    strings = true,
-    emphasis = true,
-    comments = true,
-    operators = false,
-    folds = true,
+  commentStyle = { italic = true },
+  functionStyle = {},
+  keywordStyle = { italic = true },
+  statementStyle = { bold = true },
+  typeStyle = {},
+  transparent = false,
+  dimInactive = false,
+  terminalColors = true,
+  theme = "wave",    -- wave / dragon / lotus
+  background = {
+    dark = "wave",
+    light = "lotus",
   },
-  strikethrough = true,
-  invert_selection = false,
-  invert_signs = false,
-  invert_tabline = false,
-  inverse = true, -- invert background for search, diffs, statuslines and errors
-  contrast = "", -- can be "hard", "soft" or empty string
-  palette_overrides = {},
-  overrides = {},
-  dim_inactive = false,
-  transparent_mode = false,
 })
-vim.cmd("colorscheme gruvbox")
+vim.cmd("colorscheme kanagawa-wave")
 
 -- =================================
 -- nvim-window-picker 설정
@@ -221,7 +215,7 @@ end
 require('lualine').setup {
   options = {
     icons_enabled = true,
-    theme = 'gruvbox',
+    theme = 'kanagawa',
     
     -- component_separators = { left = '', right = ''},
     -- component_separators = { left = '|', right = '|'},
