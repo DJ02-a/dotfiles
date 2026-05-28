@@ -36,6 +36,7 @@ style = "fg:#e3e5e5 bg:#769ff0"
 format = "[ $path ]($style)"
 truncation_length = 5
 truncation_symbol = "…/"
+truncate_to_repo = false
 
 [directory.substitutions]
 "Documents" = "󰈙 "
@@ -50,6 +51,16 @@ disabled = true
 [git_status]
 style = "bg:#394260"
 format = '[[($all_status$ahead_behind )](fg:#769ff0 bg:#394260)]($style)'
+staged = '+${count} '
+modified = '!${count} '
+untracked = '?${count} '
+deleted = '✘${count} '
+renamed = '»${count} '
+conflicted = '=${count} '
+stashed = '\$${count} '
+ahead = '⇡${count}'
+behind = '⇣${count}'
+diverged = '⇕⇡${ahead_count}⇣${behind_count}'
 
 # ── Languages ──────────────────────────────────────────────
 [nodejs]
