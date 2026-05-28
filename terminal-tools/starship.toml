@@ -7,6 +7,7 @@ format = """
 [░▒▓](#a3aed2)\
 [  ](bg:#a3aed2 fg:#090c0c)\
 [](bg:#769ff0 fg:#a3aed2)\
+${custom.git_icon}\
 $directory\
 [](fg:#769ff0 bg:#394260)\
 ${custom.local_branch}\
@@ -33,16 +34,17 @@ $kubernetes\
 # ── Directory ──────────────────────────────────────────────
 [directory]
 style = "fg:#e3e5e5 bg:#769ff0"
-format = "[ $path ]($style)"
+format = "[$path ]($style)"
 truncation_length = 5
-truncation_symbol = "…/"
-truncate_to_repo = false
+truncation_symbol = ""
+truncate_to_repo = true
 
 [directory.substitutions]
 "Documents" = "󰈙 "
 "Downloads" = " "
 "Music" = " "
 "Pictures" = " "
+".github" = " "
 
 # ── Git ────────────────────────────────────────────────────
 [git_branch]
@@ -135,3 +137,10 @@ when = "git rev-parse --git-dir >/dev/null 2>&1"
 symbol = "󰘬 "
 style = "bg:#394260"
 format = '[[ $symbol$output ](fg:#769ff0 bg:#394260)]($style)'
+
+# ── Custom: Git repo indicator ─────────────────────────────
+[custom.git_icon]
+command = "echo ''"
+when = "git rev-parse --git-dir >/dev/null 2>&1"
+style = "fg:#e3e5e5 bg:#769ff0"
+format = '[ $output ]($style)'
