@@ -9,7 +9,7 @@ format = """
 [](bg:#769ff0 fg:#a3aed2)\
 $directory\
 [](fg:#769ff0 bg:#394260)\
-$git_branch\
+${custom.local_branch}\
 $git_status\
 [](fg:#394260 bg:#212736)\
 $nodejs\
@@ -45,9 +45,7 @@ truncation_symbol = "…/"
 
 # ── Git ────────────────────────────────────────────────────
 [git_branch]
-symbol = ""
-style = "bg:#394260"
-format = '[[ $symbol $branch ](fg:#769ff0 bg:#394260)]($style)'
+disabled = true
 
 [git_status]
 style = "bg:#394260"
@@ -55,9 +53,9 @@ format = '[[($all_status$ahead_behind )](fg:#769ff0 bg:#394260)]($style)'
 
 # ── Languages ──────────────────────────────────────────────
 [nodejs]
-symbol = ""
+symbol = "󰎙 "
 style = "bg:#212736"
-format = '[[ $symbol node $version ](fg:#769ff0 bg:#212736)]($style)'
+format = '[[ $symbol$version ](fg:#769ff0 bg:#212736)]($style)'
 
 [bun]
 symbol = ""
@@ -65,14 +63,14 @@ style = "bg:#212736"
 format = '[[ $symbol bun $version ](fg:#769ff0 bg:#212736)]($style)'
 
 [python]
-symbol = ""
+symbol = "󰌠 "
 style = "bg:#212736"
-format = '[[ $symbol py $version( \($virtualenv\)) ](fg:#769ff0 bg:#212736)]($style)'
+format = '[[ $symbol$version( \($virtualenv\)) ](fg:#769ff0 bg:#212736)]($style)'
 
 [rust]
-symbol = ""
+symbol = "󱘗 "
 style = "bg:#212736"
-format = '[[ $symbol rs $version ](fg:#769ff0 bg:#212736)]($style)'
+format = '[[ $symbol$version ](fg:#769ff0 bg:#212736)]($style)'
 
 [golang]
 symbol = ""
@@ -118,3 +116,11 @@ style = "#7aa2f7"
 
 [kubernetes]
 disabled = true
+
+# ── Custom: Branch ────────────────────────────────────────
+[custom.local_branch]
+command = "git branch --show-current 2>/dev/null"
+when = "git rev-parse --git-dir >/dev/null 2>&1"
+symbol = "󰘬 "
+style = "bg:#394260"
+format = '[[ $symbol$output ](fg:#769ff0 bg:#394260)]($style)'

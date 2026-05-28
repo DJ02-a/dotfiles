@@ -54,3 +54,25 @@ alias k9='k9s'
 # bun completions
 # ==============================================================================
 [ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
+
+# ==============================================================================
+# uv — .venv 자동 활성화/비활성화
+# ==============================================================================
+function _uv_venv_auto() {
+  local venv="$PWD/.venv"
+  if [[ -f "$venv/bin/activate" ]]; then
+    if [[ "$VIRTUAL_ENV" != "$venv" ]]; then
+      source "$venv/bin/activate"
+    fi
+  elif [[ -n "$VIRTUAL_ENV" ]]; then
+    # .venv 없는 디렉토리로 나오면 비활성화
+    local current="$PWD"
+    local venv_parent="${VIRTUAL_ENV:h:h}"  # .venv의 부모 디렉토리
+    if [[ "$current" != "$venv_parent"* ]]; then
+      deactivate
+    fi
+  fi
+}
+autoload -Uz add-zsh-hook
+add-zsh-hook chpwd _uv_venv_auto
+_uv_venv_auto  # 쉘 시작 시 현재 디렉토리에서도 실행
