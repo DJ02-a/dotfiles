@@ -16,7 +16,7 @@ bash install.sh
 bash uninstall.sh
 
 # Individual component install
-bash terminal-tools/setting.bash   # lsd, bat, neofetch, lazygit, uv
+bash terminal-tools/setting.bash   # lsd, bat, neofetch, lazygit, uv, fzf
 bash nvim/nvim_install.sh          # Neovim + vim-plug + plugins
 bash tmux/tmux_setup_script.sh     # tmux + TPM + plugins
 bash claude/install.sh             # Claudia GUI + claude-notify
@@ -40,7 +40,7 @@ Editing files in this repo immediately affects the live config.
 
 ### Directory Responsibilities
 
-- **`terminal-tools/`** — Cross-platform install for lsd, bat, neofetch, lazygit, uv. Adds shell aliases (`ls`→`lsd`, `cat`→`bat`). Handles macOS/Ubuntu/Fedora/Arch differences.
+- **`terminal-tools/`** — Cross-platform install for lsd, bat, neofetch, lazygit, uv, fzf (latest binary; distro fzf is too old for the `--height=~40%` syntax in `zsh/zinit.zsh`). Adds shell aliases (`ls`→`lsd`, `cat`→`bat`). Handles macOS/Ubuntu/Fedora/Arch differences.
 - **`nvim/`** — Neovim config. Uses vim-plug (`init.vim`) with Lua modules in `nvim/lua/`. Minimum version: 0.10.4. Linux installs via AppImage; macOS via Homebrew.
 - **`tmux/`** — TPM-based tmux config. Theme: Kanagawa Wave (`Nybkox/tmux-kanagawa`). Prefix remapped to `C-a`. Integrates with nvim via `christoomey/vim-tmux-navigator` (C-h/j/k/l navigation across panes).
 - **`zsh/`** — Python dev environment setup (pyenv, poetry, common tools). Not symlinked — appends to `~/.zshrc` directly.

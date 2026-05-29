@@ -205,6 +205,85 @@ install_uv() {
     fi
 }
 
+# Install fzf (latest binary from GitHub release)
+# NOTE: distro packages (e.g. Ubuntu apt = 0.29) are too old for the
+#       --height=~40% adaptive syntax used in zsh/zinit.zsh (needs >= 0.34).
+install_fzf() {
+    print_info "Installing fzf..."
+
+    # Require >= 0.34 for the ~height syntax used by fzf-tab config
+    if command_exists fzf; then
+        local cur=$(FZF_DEFAULT_OPTS="" fzf --version 2>/dev/null | awk '{print $1}')
+        local major=${cur%%.*}; local minor=${cur#*.}; minor=${minor%%.*}
+        if [[ -n "$cur" ]] && { [[ "$major" -gt 0 ]] || [[ "${minor:-0}" -ge 34 ]]; }; then
+            print_success "fzf $cur already installed (>= 0.34)"
+            return 0
+        fi
+        print_warning "fzf $cur is too old for ~height syntax — installing latest to ~/.local/bin"
+    fi
+
+    # Detect OS/arch asset name
+    local os=$(detect_os) arch=$(uname -m) asset=""
+    case "$os-$arch" in
+        macos-arm64|macos-aarch64) asset="darwin_arm64" ;;
+        macos-x86_64)              asset="darwin_amd64" ;;
+        linux-x86_64)              asset="linux_amd64" ;;
+        linux-aarch64|linux-arm64) asset="linux_arm64" ;;
+        *) print_warning "Unsupported platform for fzf binary: $os-$arch — skipping"; return 0 ;;
+    esac
+
+    local ver
+    ver=$(curl -fsSL "https://api.github.com/repos/junegunn/fzf/releases/latest" | grep -m1 '"tag_name"' | sed -E 's/.*"v?([^"]+)".*/\1/')
+    if [[ -z "$ver" ]]; then
+        print_warning "Could not determine latest fzf version — skipping"
+        return 0
+    fi
+
+    mkdir -p "$HOME/.local/bin"
+    local tmp; tmp=$(mktemp -d)
+    if curl -fsSL "https://github.com/junegunn/fzf/releases/download/v${ver}/fzf-${ver}-${asset}.tar.gz" -o "$tmp/fzf.tar.gz" \
+        && tar -xzf "$tmp/fzf.tar.gz" -C "$tmp"; then
+        install -m 755 "$tmp/fzf" "$HOME/.local/bin/fzf"
+        print_success "fzf $ver installed to ~/.local/bin/fzf"
+    else
+        print_warning "fzf download failed — install manually: https://github.com/junegunn/fzf"
+    fi
+    rm -rf "$tmp"
+}
+
+# Ensure the current $TERM has a terminfo entry on this machine.
+# Modern terminals (Ghostty, Kitty, WezTerm, Alacritty) ship their own terminfo
+# (e.g. xterm-ghostty). Over SSH the remote server often lacks it → zsh reads
+# ZERO capabilities (no el/cub1) → line editing & syntax highlighting corrupt the
+# display (characters shift, stray spaces). Fix: install an xterm-256color-based
+# alias for the missing entry (these terminals are xterm-compatible).
+ensure_terminfo() {
+    local term="${TERM:-}"
+    [[ -z "$term" || "$term" == "dumb" ]] && return 0
+
+    if infocmp "$term" >/dev/null 2>&1; then
+        return 0  # terminfo already present
+    fi
+
+    print_warning "terminfo entry for TERM='$term' is missing — line editing may corrupt the display"
+    if ! command_exists tic; then
+        print_warning "  'tic' not found (install ncurses-bin / ncurses) — skipping terminfo fix"
+        return 0
+    fi
+
+    print_info "Installing xterm-256color-based terminfo alias for '$term'..."
+    local src; src=$(mktemp)
+    if infocmp -x xterm-256color 2>/dev/null \
+        | sed "s/^xterm-256color|[^,]*,/${term}|${term} (xterm-256color compatible),/" > "$src" \
+        && tic -x -o "$HOME/.terminfo" "$src" 2>/dev/null; then
+        print_success "terminfo '$term' installed to ~/.terminfo (open a new shell to apply)"
+    else
+        print_warning "  Could not build terminfo for '$term'. From your LOCAL terminal run:"
+        echo "      infocmp -x $term | ssh <this-server> -- tic -x -"
+    fi
+    rm -f "$src"
+}
+
 # Setup lsd configuration
 setup_lsd_config() {
     print_info "Setting up lsd configuration..."
@@ -274,7 +353,7 @@ alias cat="bat"
 main() {
     echo "============================================================================="
     echo "  Terminal Tools Installation"
-    echo "  Installing: lsd, bat, neofetch, lazygit, uv"
+    echo "  Installing: lsd, bat, neofetch, lazygit, uv, fzf"
     echo "============================================================================="
     echo ""
 
@@ -316,6 +395,12 @@ main() {
     install_uv
 
     echo ""
+    install_fzf
+
+    echo ""
+    ensure_terminfo
+
+    echo ""
     setup_lsd_config
 
     echo ""
@@ -333,6 +418,7 @@ main() {
     command_exists neofetch && echo "  ✓ neofetch"
     command_exists lazygit && echo "  ✓ lazygit"
     command_exists uv && echo "  ✓ uv $(uv --version 2>/dev/null)"
+    command_exists fzf && echo "  ✓ fzf $(FZF_DEFAULT_OPTS='' fzf --version 2>/dev/null | awk '{print $1}')"
     echo ""
     print_info "Restart your terminal or run: source ~/.zshrc (or ~/.bashrc)"
 }
