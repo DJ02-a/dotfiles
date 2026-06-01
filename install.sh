@@ -29,12 +29,34 @@ cd ..
 # tealdeer (tldr) 설치
 # ==============================================================================
 echo "Installing tealdeer (tldr)..."
-if ! command -v tldr >/dev/null 2>&1; then
-    brew install tealdeer
-    tldr --update
-    echo "  ✓ tealdeer installed"
-else
+if command -v tldr >/dev/null 2>&1; then
     echo "  ✓ tealdeer already installed"
+elif command -v brew >/dev/null 2>&1; then
+    brew install tealdeer && tldr --update
+    echo "  ✓ tealdeer installed (via brew)"
+elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    # Linux: fetch latest release binary (brew not assumed).
+    TLDR_VER=$(curl -fsSL "https://api.github.com/repos/tealdeer-rs/tealdeer/releases/latest" \
+        | grep -m1 '"tag_name"' | sed -E 's/.*"v?([^"]+)".*/\1/')
+    TLDR_ARCH=$(uname -m)
+    case "$TLDR_ARCH" in
+        x86_64)  TLDR_ASSET="linux-x86_64-musl" ;;
+        aarch64|arm64) TLDR_ASSET="linux-arm-musleabihf" ;;
+        *) TLDR_ASSET="" ;;
+    esac
+    if [ -n "$TLDR_VER" ] && [ -n "$TLDR_ASSET" ]; then
+        mkdir -p "$HOME/.local/bin"
+        curl -fsSL "https://github.com/tealdeer-rs/tealdeer/releases/download/v${TLDR_VER}/tealdeer-${TLDR_ASSET}" \
+            -o "$HOME/.local/bin/tldr" \
+            && chmod +x "$HOME/.local/bin/tldr" \
+            && "$HOME/.local/bin/tldr" --update >/dev/null \
+            && echo "  ✓ tealdeer ${TLDR_VER} installed (~/.local/bin)" \
+            || echo "  ✗ tealdeer install failed — fetch manually"
+    else
+        echo "  ✗ tealdeer: could not determine version/arch — skipping"
+    fi
+else
+    echo "  ✗ tealdeer: no installer available on this OS — skipping"
 fi
 
 # ==============================================================================
@@ -42,7 +64,14 @@ fi
 # ==============================================================================
 echo "Installing Zinit..."
 ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
-if [ ! -d "$ZINIT_HOME" ]; then
+# Verify the *content* not just directory existence — a previous interrupted
+# clone can leave an empty .git/ that passes `[ -d ]` but has no zinit.zsh,
+# causing "zinit: command not found" on shell startup.
+if [ ! -f "$ZINIT_HOME/zinit.zsh" ]; then
+    if [ -d "$ZINIT_HOME" ]; then
+        echo "  ⚠ Incomplete Zinit clone detected — repairing"
+        rm -rf "$ZINIT_HOME"
+    fi
     mkdir -p "$(dirname "$ZINIT_HOME")"
     git clone https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME"
     echo "  ✓ Zinit installed"
@@ -65,12 +94,30 @@ fi
 # 심볼릭 링크 생성
 # ==============================================================================
 
-# 기존 심볼릭 링크 함수
+# Idempotent symlink helper.
+# Verifies the symlink's *target* (not just its existence) so stale links from
+# previous layouts (e.g. ~/.config/starship.toml → old oh-my-zsh path) and
+# broken links get repaired instead of being silently skipped.
 link() {
     local src="$1"
     local dst="$2"
+    local src_abs
+    src_abs=$(readlink -f "$src" 2>/dev/null) || {
+        echo "  ✗ Source missing, skipping: $src"
+        return 1
+    }
+
     if [ -L "$dst" ]; then
-        echo "  ✓ Already linked: $dst"
+        local cur_abs
+        cur_abs=$(readlink -f "$dst" 2>/dev/null || true)
+        if [ "$cur_abs" = "$src_abs" ]; then
+            echo "  ✓ Already linked: $dst"
+            return 0
+        fi
+        # Symlink points elsewhere or is broken — replace atomically.
+        echo "  ⚠ Re-linking $dst (was: $(readlink "$dst"))"
+        ln -sfn "$src" "$dst"
+        echo "  ✓ Linked: $dst"
     elif [ -e "$dst" ]; then
         mv "$dst" "${dst}.backup.$(date +%Y%m%d_%H%M%S)"
         echo "  ⚠ Backed up existing: $dst"

@@ -271,10 +271,40 @@ ensure_terminfo() {
         return 0
     fi
 
-    print_info "Installing xterm-256color-based terminfo alias for '$term'..."
+    # Distros sometimes ship ~/.terminfo/<letter> as a symlink into root-owned
+    # /lib/terminfo/<letter>. tic can't write there. Replace the bucket with a
+    # real dir, then mirror system entries via symlinks so fallback still works.
+    local bucket="$HOME/.terminfo/${term:0:1}"
+    if [ -L "$bucket" ]; then
+        local sys_dir
+        sys_dir=$(readlink -f "$bucket" 2>/dev/null)
+        print_info "  ~/.terminfo/${term:0:1} is a symlink to $sys_dir — converting to writable dir"
+        rm "$bucket"
+        mkdir -p "$bucket"
+        if [ -d "$sys_dir" ]; then
+            for f in "$sys_dir"/*; do
+                [ -e "$f" ] && ln -sf "$f" "$bucket/$(basename "$f")"
+            done
+        fi
+    fi
+
+    # Read xterm-256color from system path explicitly: once we replace the
+    # bucket above, plain `infocmp xterm-256color` may stop resolving until
+    # the symlinks below are in place, and we need its definition right now.
     local src; src=$(mktemp)
-    if infocmp -x xterm-256color 2>/dev/null \
-        | sed "s/^xterm-256color|[^,]*,/${term}|${term} (xterm-256color compatible),/" > "$src" \
+    local base_src=""
+    if [ -d /lib/terminfo ] && infocmp -x -A /lib/terminfo xterm-256color >/dev/null 2>&1; then
+        base_src=$(infocmp -x -A /lib/terminfo xterm-256color)
+    elif [ -d /usr/share/terminfo ] && infocmp -x -A /usr/share/terminfo xterm-256color >/dev/null 2>&1; then
+        base_src=$(infocmp -x -A /usr/share/terminfo xterm-256color)
+    else
+        base_src=$(infocmp -x xterm-256color 2>/dev/null)
+    fi
+
+    print_info "Installing xterm-256color-based terminfo alias for '$term'..."
+    if [ -n "$base_src" ] \
+        && printf '%s\n' "$base_src" \
+            | sed "s/^xterm-256color|[^,]*,/${term}|${term} (xterm-256color compatible),/" > "$src" \
         && tic -x -o "$HOME/.terminfo" "$src" 2>/dev/null; then
         print_success "terminfo '$term' installed to ~/.terminfo (open a new shell to apply)"
     else
