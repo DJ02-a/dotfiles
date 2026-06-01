@@ -153,24 +153,27 @@ lua << EOF
 -- =================================
 -- THEME 설정 (Kanagawa Wave)
 -- =================================
-require("kanagawa").setup({
-  compile = false,
-  undercurl = true,
-  commentStyle = { italic = true },
-  functionStyle = {},
-  keywordStyle = { italic = true },
-  statementStyle = { bold = true },
-  typeStyle = {},
-  transparent = false,
-  dimInactive = false,
-  terminalColors = true,
-  theme = "wave",    -- wave / dragon / lotus
-  background = {
-    dark = "wave",
-    light = "lotus",
-  },
-})
-vim.cmd("colorscheme kanagawa-wave")
+local kanagawa_ok, kanagawa = pcall(require, "kanagawa")
+if kanagawa_ok then
+  kanagawa.setup({
+    compile = false,
+    undercurl = true,
+    commentStyle = { italic = true },
+    functionStyle = {},
+    keywordStyle = { italic = true },
+    statementStyle = { bold = true },
+    typeStyle = {},
+    transparent = false,
+    dimInactive = false,
+    terminalColors = true,
+    theme = "wave",    -- wave / dragon / lotus
+    background = {
+      dark = "wave",
+      light = "lotus",
+    },
+  })
+  vim.cmd("colorscheme kanagawa-wave")
+end
 
 -- =================================
 -- nvim-window-picker 설정
