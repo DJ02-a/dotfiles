@@ -6,6 +6,7 @@
 format = """
 [░▒▓](#a3aed2)\
 [  ](bg:#a3aed2 fg:#090c0c)\
+${custom.local_icon}\
 [](bg:#769ff0 fg:#a3aed2)\
 ${custom.git_icon}\
 $directory\
@@ -31,6 +32,15 @@ $terraform\
 $kubernetes\
 """
 
+# ── Host icon ──────────────────────────────────────────────
+# Fixed laptop icon for this machine. (SSH sessions render with the
+# remote machine's own config, so there's no point branching on SSH here.)
+[custom.local_icon]
+when = "true"
+command = "echo 󰌢"
+style = "bg:#a3aed2 fg:#090c0c"
+format = '[$output ]($style)'
+
 # ── Directory ──────────────────────────────────────────────
 [directory]
 style = "fg:#e3e5e5 bg:#769ff0"
@@ -40,11 +50,13 @@ truncation_symbol = ""
 truncate_to_repo = true
 
 [directory.substitutions]
-"Documents" = "󰈙 "
-"Downloads" = " "
-"Music" = " "
-"Pictures" = " "
-".github" = " "
+"~/Documents" = " 󰈙 Documents"
+"~/Downloads" = " 󰇚 Downloads"
+"~/Music"     = " 󰎵 Music"
+"~/Pictures"  = " 󰋩 Pictures"
+"~/Desktop"   = " 󰎨 Desktop"
+"~/.config"   = " 󰒓 .config"
+"~/.github"   = "  .github"
 
 # ── Git ────────────────────────────────────────────────────
 [git_branch]
