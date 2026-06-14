@@ -76,3 +76,13 @@ function _uv_venv_auto() {
 autoload -Uz add-zsh-hook
 add-zsh-hook chpwd _uv_venv_auto
 _uv_venv_auto  # 쉘 시작 시 현재 디렉토리에서도 실행
+
+# ==============================================================================
+# git-crypt 암호화 시크릿 로드 (Claude Code 등이 env로 상속)
+# 저장소가 아직 잠겨(unlock 안 됨) 있으면 파일이 암호화 상태이므로 건너뜀
+# ==============================================================================
+_dotfiles_secrets="$HOME/.config/dotfiles/claude/secrets.env"
+if [[ -f "$_dotfiles_secrets" ]] && ! head -c 9 "$_dotfiles_secrets" 2>/dev/null | grep -q 'GITCRYPT'; then
+  source "$_dotfiles_secrets"
+fi
+unset _dotfiles_secrets

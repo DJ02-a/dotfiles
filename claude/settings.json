@@ -1,4 +1,49 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(git *)",
+      "Bash(docker *)",
+      "Read(*)",
+      "Edit(*)"
+    ],
+    "ask": [
+      "Bash(git push*)",
+      "Bash(docker rmi*)"
+    ],
+    "defaultMode": "auto"
+  },
+  "enabledPlugins": {
+    "github@claude-plugins-official": true,
+    "understand-anything@understand-anything": true,
+    "financial-analysis@claude-for-financial-services": true,
+    "pitch-agent@claude-for-financial-services": true,
+    "gl-reconciler@claude-for-financial-services": true,
+    "market-researcher@claude-for-financial-services": true,
+    "investment-banking@claude-for-financial-services": true,
+    "equity-research@claude-for-financial-services": true
+  },
+  "extraKnownMarketplaces": {
+    "claude-code-warp": {
+      "source": {
+        "source": "github",
+        "repo": "warpdotdev/claude-code-warp"
+      }
+    },
+    "understand-anything": {
+      "source": {
+        "source": "github",
+        "repo": "Lum1104/Understand-Anything"
+      }
+    },
+    "claude-for-financial-services": {
+      "source": {
+        "source": "github",
+        "repo": "anthropics/financial-services"
+      }
+    }
+  },
+  "skipAutoPermissionPrompt": true,
+  "alwaysThinkingEnabled": true,
   "hooks": {
     "Notification": [
       {
@@ -22,6 +67,5 @@
         ]
       }
     ]
-  },
-  "alwaysThinkingEnabled": true
+  }
 }

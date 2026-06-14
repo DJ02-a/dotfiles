@@ -1,0 +1,4 @@
+# git-crypt: encrypt secret files transparently.
+# Files matched here are stored ENCRYPTED in the repo but appear as
+# plaintext in the working tree after `git-crypt unlock`.
+claude/secrets.env filter=git-crypt diff=git-crypt

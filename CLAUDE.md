@@ -33,10 +33,12 @@ bash claude/install.sh             # Claudia GUI + claude-notify
 | `~/.config/neofetch` | `dotfiles/neofetch/` |
 | `~/.config/lsd/` | `dotfiles/terminal-tools/lsd/` |
 | `~/.tmux.conf` | `dotfiles/tmux/.tmux.conf` |
-| `~/.claude/settings.json` | `dotfiles/claude/settings.json` |
 | `~/.claude/skills/` | `dotfiles/claude/skills/` |
+| `~/.claude/CLAUDE.md` | `dotfiles/claude/CLAUDE.md` |
 
 Editing files in this repo immediately affects the live config.
+
+**Exception — `~/.claude/settings.json` is GENERATED, not symlinked.** `claude/gen-claude-settings.py` writes it = committed non-secret base (`claude/settings.json`) **+** an `env` block injected from the git-crypt-encrypted `claude/secrets.env`. This lets secret tokens become global Claude env vars without committing them to this public repo. Re-run the generator after editing `secrets.env`. See `claude/secrets.env.example` and the `dotfiles-install` skill.
 
 ### Directory Responsibilities
 
